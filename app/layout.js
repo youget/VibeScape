@@ -29,7 +29,7 @@ export const metadata = {
     description: 'Your brain called. It wants good vibes. AI tools, videos, games — built on a phone, running on free tiers.',
     siteName: 'VibeScape',
     type: 'website',
-    url: 'https://vibescape.vercel.app',
+    url: 'https://vibeze.vercel.app',
   },
   twitter: {
     card: 'summary',
