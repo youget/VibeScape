@@ -1,172 +1,204 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useTheme } from './ThemeProvider'
 
-// Future GIFs: drop into /public and update these paths
-const ANIMS = {
-  idle:  '/mascot-idle.gif',
-  wave:  '/mascot-wave.gif',   // belum ada — fallback ke idle
-  jump:  '/mascot-jump.gif',   // belum ada — fallback ke idle
+// ─── Asset paths ─────────────────────────────────────────────
+// Drop files in /public and update paths here
+const CHARS = {
+  dark: {
+    idle: '/mascot-female-idle.webp',
+    wave: '/mascot-female-wave.webp',   // belum ada → fallback idle
+    jump: '/mascot-female-jump.webp',   // belum ada → fallback idle
+  },
+  light: {
+    idle: '/mascot-male-idle.webp',     // belum ada → fallback female
+    wave: '/mascot-male-wave.webp',
+    jump: '/mascot-male-jump.webp',
+  },
 }
 
-export default function Mascot() {
-  const [anim, setAnim] = useState('idle')
-  const [ripple, setRipple] = useState(null)
+// Which anims are ready (update ke true kalau file sudah ada)
+const READY = {
+  dark:  { idle: true,  wave: false, jump: false },
+  light: { idle: false, wave: false, jump: false }, // set true kalau male sudah ada
+}
+
+export default function Mascot({ size = 200 }) {
+  const { theme } = useTheme()
+  const mode = theme === 'dark' ? 'dark' : 'light'
+
+  const [anim, setAnim]       = useState('idle')
+  const [ripple, setRipple]   = useState(null)
+  const [tooltip, setTooltip] = useState(null)
   const timerRef = useRef(null)
-  const wrapRef = useRef(null)
+  const wrapRef  = useRef(null)
+
+  // Reset to idle when theme changes
+  useEffect(() => { setAnim('idle') }, [theme])
+
+  // Resolve actual src — fallback chain
+  function resolveSrc(animName) {
+    const char = CHARS[mode]
+    const ready = READY[mode]
+
+    // If requested anim not ready, fallback to idle
+    if (!ready[animName]) animName = 'idle'
+
+    // If idle not ready for this mode, fallback to dark female idle
+    if (!ready.idle) return CHARS.dark.idle
+
+    return char[animName]
+  }
 
   function triggerAnim(type, e) {
-    // Ripple effect at click point
+    // Ripple
     const rect = wrapRef.current?.getBoundingClientRect()
     if (rect && e) {
       setRipple({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-      setTimeout(() => setRipple(null), 600)
+      setTimeout(() => setRipple(null), 700)
     }
 
-    // Only switch if the GIF exists (wave/jump not ready yet → stay idle)
-    const target = type === 'wave' ? 'wave' : 'jump'
-    if (typeof window !== 'undefined') {
-      // Check if non-idle gif exists by trying to set it
-      // For now always plays idle since other GIFs aren't ready
-      setAnim(target)
+    // Tooltip
+    const tips = {
+      wave: ['hi! 👋', 'hello~ ✨', 'hey! 😊'],
+      jump: ['yay! 🎉', 'wheee! ✌️', 'woo! 💙'],
     }
+    const pool = tips[type] || tips.wave
+    setTooltip(pool[Math.floor(Math.random() * pool.length)])
+    setTimeout(() => setTooltip(null), 1800)
 
-    // Auto return to idle after 2.5s
+    setAnim(type)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setAnim('idle'), 2500)
+    timerRef.current = setTimeout(() => setAnim('idle'), 2800)
   }
 
   function handleClick(e) {
     const rect = wrapRef.current?.getBoundingClientRect()
     if (!rect) return
-    const clickY = e.clientY - rect.top
-    const midY = rect.height * 0.52  // waist divider ~52% from top
-    if (clickY < midY) {
+    const relY = e.clientY - rect.top
+    if (relY < rect.height * 0.52) {
       triggerAnim('wave', e)
     } else {
       triggerAnim('jump', e)
     }
   }
 
-  // Fallback to idle if GIF not ready yet
-  const src = anim !== 'idle'
-    ? (typeof window !== 'undefined' ? ANIMS[anim] : ANIMS.idle)
-    : ANIMS.idle
+  const src = resolveSrc(anim)
 
   return (
-    <div className="mascot-outer" ref={wrapRef} onClick={handleClick}>
-      {/* Glow behind character */}
-      <div className="mascot-glow" />
+    <div
+      ref={wrapRef}
+      onClick={handleClick}
+      style={{ position: 'relative', width: size, cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}
+    >
+      {/* Glow */}
+      <div style={{
+        position: 'absolute', bottom: 6, left: '50%',
+        width: size * 0.65, height: 20,
+        background: 'radial-gradient(ellipse, rgba(59,130,246,0.28) 0%, transparent 70%)',
+        borderRadius: '50%',
+        transform: 'translateX(-50%)',
+        animation: 'mascot-glow 3s ease-in-out infinite',
+        pointerEvents: 'none',
+      }} />
 
-      {/* Character GIF */}
-      <div className="mascot-wrap">
+      {/* Float wrapper */}
+      <div style={{ animation: 'mascot-float 3s ease-in-out infinite' }}>
         <img
           src={src}
           alt="VibeScape mascot"
-          className="mascot-img"
-          onError={e => { e.target.src = ANIMS.idle }}  // fallback
+          width={size}
+          style={{
+            display: 'block',
+            imageRendering: 'auto',
+            pointerEvents: 'none',
+          }}
+          onError={e => {
+            // Final fallback: hide broken image gracefully
+            if (e.target.src !== CHARS.dark.idle) {
+              e.target.src = CHARS.dark.idle
+            }
+          }}
         />
       </div>
 
-      {/* Click zones hint — invisible, just for cursor */}
-      <div className="zone-top" title="Say hi!" />
-      <div className="zone-bottom" title="Jump!" />
-
-      {/* Click ripple */}
+      {/* Ripple */}
       {ripple && (
-        <span
-          className="mascot-ripple"
-          style={{ left: ripple.x, top: ripple.y }}
-        />
+        <span style={{
+          position: 'absolute',
+          left: ripple.x - 20, top: ripple.y - 20,
+          width: 40, height: 40,
+          borderRadius: '50%',
+          background: 'rgba(99,179,246,0.35)',
+          animation: 'mascot-ripple 0.7s ease-out forwards',
+          pointerEvents: 'none',
+        }} />
       )}
 
-      {/* Tooltip */}
-      <p className="mascot-hint">click me ✨</p>
+      {/* Tooltip bubble */}
+      {tooltip && (
+        <div style={{
+          position: 'absolute',
+          top: -36, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--vs-accent)',
+          color: '#fff',
+          padding: '4px 12px',
+          borderRadius: 20,
+          fontSize: 13,
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+          animation: 'mascot-tooltip 1.8s ease forwards',
+          pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+        }}>
+          {tooltip}
+          {/* Arrow */}
+          <span style={{
+            position: 'absolute', bottom: -5, left: '50%',
+            transform: 'translateX(-50%)',
+            width: 0, height: 0,
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            borderTop: '5px solid var(--vs-accent)',
+          }} />
+        </div>
+      )}
 
-      <style jsx>{`
-        .mascot-outer {
-          position: relative;
-          width: 200px;
-          cursor: pointer;
-          user-select: none;
-          flex-shrink: 0;
-        }
+      {/* Hint text */}
+      <p style={{
+        textAlign: 'center',
+        fontSize: 10,
+        color: 'rgba(148,163,184,0.4)',
+        marginTop: 4,
+        letterSpacing: '0.05em',
+        animation: 'mascot-hint 2.5s ease-in-out infinite alternate',
+      }}>
+        click me ✨
+      </p>
 
-        /* Floating animation on top of GIF loop */
-        .mascot-wrap {
-          animation: mascot-float 3s ease-in-out infinite;
-          transform-origin: bottom center;
-        }
-
+      {/* Global keyframes */}
+      <style>{`
         @keyframes mascot-float {
           0%, 100% { transform: translateY(0px); }
           50%       { transform: translateY(-10px); }
         }
-
-        .mascot-img {
-          width: 200px;
-          display: block;
-          /* Makes black background invisible on dark bg */
-          mix-blend-mode: screen;
-          pointer-events: none;
-          border-radius: 4px;
+        @keyframes mascot-glow {
+          0%, 100% { opacity: 0.7; transform: translateX(-50%) scaleX(1); }
+          50%       { opacity: 0.2; transform: translateX(-50%) scaleX(0.6); }
         }
-
-        /* Soft glow pulse */
-        .mascot-glow {
-          position: absolute;
-          bottom: 10px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 120px;
-          height: 30px;
-          background: radial-gradient(ellipse, rgba(59,130,246,0.3) 0%, transparent 70%);
-          border-radius: 50%;
-          animation: glow-pulse 3s ease-in-out infinite;
-          pointer-events: none;
-        }
-
-        @keyframes glow-pulse {
-          0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.6; }
-          50%       { transform: translateX(-50%) scaleX(0.7); opacity: 0.2; }
-        }
-
-        /* Invisible click zones */
-        .zone-top, .zone-bottom {
-          position: absolute;
-          left: 0; right: 0;
-          pointer-events: none;
-        }
-        .zone-top    { top: 0; height: 52%; cursor: pointer; }
-        .zone-bottom { top: 52%; bottom: 0; cursor: pointer; }
-
-        /* Click ripple */
-        .mascot-ripple {
-          position: absolute;
-          width: 40px; height: 40px;
-          margin-left: -20px; margin-top: -20px;
-          border-radius: 50%;
-          background: rgba(99, 179, 246, 0.4);
-          animation: ripple-out 0.6s ease-out forwards;
-          pointer-events: none;
-        }
-
-        @keyframes ripple-out {
+        @keyframes mascot-ripple {
           from { transform: scale(0); opacity: 1; }
-          to   { transform: scale(3); opacity: 0; }
+          to   { transform: scale(4); opacity: 0; }
         }
-
-        .mascot-hint {
-          text-align: center;
-          font-size: 10px;
-          color: rgba(148, 163, 184, 0.4);
-          margin-top: 4px;
-          letter-spacing: 1px;
-          animation: hint-fade 2s ease-in-out infinite alternate;
+        @keyframes mascot-tooltip {
+          0%   { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+          15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+          75%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
         }
-
-        @keyframes hint-fade {
-          from { opacity: 0.3; }
-          to   { opacity: 0.8; }
+        @keyframes mascot-hint {
+          from { opacity: 0.25; }
+          to   { opacity: 0.7; }
         }
       `}</style>
     </div>
