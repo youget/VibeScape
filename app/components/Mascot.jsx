@@ -19,7 +19,7 @@ const CHARS = {
 
 // Which anims are ready (update ke true kalau file sudah ada)
 const READY = {
-  dark:  { idle: true,  wave: false, jump: false },
+  dark:  { idle: true,  wave: true, jump: true },
   light: { idle: false, wave: false, jump: false }, // set true kalau male sudah ada
 }
 
