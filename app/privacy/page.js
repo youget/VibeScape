@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'Privacy Policy | ViralScape',
+  title: 'Privacy Policy | VibeScape',
 }
 
 export default function Privacy() {
