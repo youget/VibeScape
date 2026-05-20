@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'Disclaimer | ViralScape',
+  title: 'Disclaimer | VibeScape',
 }
 
 export default function Disclaimer() {
@@ -20,7 +20,7 @@ export default function Disclaimer() {
         <div className="vs-card border vs-border rounded-2xl p-5">
           <h2 className="font-bold vs-text mb-2">Third-Party Content</h2>
           <p>
-            All videos displayed on ViralScape are sourced from YouTube 
+            All videos displayed on VibeScape are sourced from YouTube 
             via the official YouTube Data API. We do not own, host, or 
             claim ownership of any video content. All rights belong to 
             their respective creators and copyright holders.
@@ -52,7 +52,7 @@ export default function Disclaimer() {
         <div className="vs-card border vs-border rounded-2xl p-5">
           <h2 className="font-bold vs-text mb-2">External Links</h2>
           <p>
-            ViralScape may contain links to external websites 
+            VibeScape may contain links to external websites 
             (YouTube, Pollinations.ai, etc). We are not responsible 
             for the content, privacy policies, or practices of these 
             third-party sites. Clicking external links means you&apos;re 
