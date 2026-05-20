@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata = {
-  title: 'About | ViralScape',
+  title: 'About | VibeScape',
 }
 
 export default function About() {
@@ -12,15 +12,15 @@ export default function About() {
       </a>
 
       <h1 className="text-3xl font-black vs-text mb-2">
-        About <span className="vs-gradient-text">ViralScape</span>
+        About <span className="vs-gradient-text">VibeScape</span>
       </h1>
       <p className="text-sm vs-text-sub mb-8">the lore nobody asked for</p>
 
       <div className="flex flex-col gap-6 text-sm vs-text leading-relaxed">
         <div className="vs-card border vs-border rounded-2xl p-5">
-          <h2 className="font-bold mb-2">WTF is ViralScape?</h2>
+          <h2 className="font-bold mb-2">WTF is VibeScape?</h2>
           <p className="vs-text-sub">
-            ViralScape is what happens when someone with zero budget, 
+            VibeScape is what happens when someone with zero budget, 
             way too much free time, and an unhealthy internet addiction 
             decides to build a website. It serves you the shortest, 
             most brain-rotting videos from YouTube and lets you generate 
