@@ -1,23 +1,57 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Menu, X, ExternalLink, Download } from 'lucide-react'
-import { usePathname } from 'next/navigation'
+import { Sun, Moon, Menu, X, ExternalLink, Download, ChevronDown, ChevronRight, Key } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
 
-const sideMenuItems = [
-  { label: 'About', href: '/about' },
-  { label: 'Disclaimer', href: '/disclaimer' },
-  { label: 'Privacy', href: '/privacy' },
-  { label: 'Pollinations.ai', href: 'https://enter.pollinations.ai', external: true },
+const USER_KEY_STORAGE = 'vs-user-polli-key'
+
+// ─── Menu structure ───────────────────────────────────────────
+const MENU_ITEMS = [
+  {
+    label: 'Videos',
+    href: '/videos',
+  },
+  {
+    label: 'AI',
+    children: [
+      { label: 'Fortune Teller', href: '/ai/chat?tab=peramal' },
+      { label: 'Story Builder',  href: '/ai/chat?tab=story'   },
+      { label: 'Blueprint Builder', href: '/ai/chat?tab=builder' },
+      { label: 'Image',          href: '/ai/create?tab=image' },
+      { label: 'Audio',          href: '/ai/create?tab=audio' },
+      { label: 'Video',          href: '/ai/create?tab=video' },
+    ],
+  },
+  {
+    label: 'Favourites',
+    href: '/favorites',
+  },
+  {
+    label: 'Games',
+    children: [
+      { label: 'Dopamine Miner', href: '/game/dopamine' },
+      { label: 'Rabbit Run',     href: '/game/rabbit'   },
+      { label: 'Digital Pet',    href: '/game/pet'      },
+    ],
+  },
+  {
+    label: 'Pollinations',
+    href: 'https://pollinations.ai',
+    external: true,
+  },
 ]
 
 export default function TopBar() {
-  const pathname = usePathname()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen]         = useState(false)
+  const [expanded, setExpanded]         = useState(null) // which submenu is open
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [hasKey, setHasKey]             = useState(false)
+  const { theme, toggleTheme }          = useTheme()
 
   useEffect(() => {
-    if (pathname !== '/') return
+    setHasKey(!!localStorage.getItem(USER_KEY_STORAGE))
+
     const handler = (e) => {
       e.preventDefault()
       setInstallPrompt(e)
@@ -26,15 +60,21 @@ export default function TopBar() {
     }
     window.addEventListener('beforeinstallprompt', handler)
     return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [pathname])
+  }, [])
 
-  if (pathname !== '/') return null
+  // Re-check key whenever menu opens
+  useEffect(() => {
+    if (menuOpen) setHasKey(!!localStorage.getItem(USER_KEY_STORAGE))
+  }, [menuOpen])
 
   async function handleInstall() {
     if (!installPrompt) return
     installPrompt.prompt()
     const result = await installPrompt.userChoice
-    if (result.outcome === 'accepted') { setShowInstallBanner(false); setInstallPrompt(null) }
+    if (result.outcome === 'accepted') {
+      setShowInstallBanner(false)
+      setInstallPrompt(null)
+    }
   }
 
   function dismissBanner() {
@@ -42,8 +82,23 @@ export default function TopBar() {
     localStorage.setItem('vs-install-dismissed', 'true')
   }
 
+  function handleRemoveKey() {
+    localStorage.removeItem(USER_KEY_STORAGE)
+    setHasKey(false)
+  }
+
+  function toggleExpand(label) {
+    setExpanded(prev => prev === label ? null : label)
+  }
+
+  function closeMenu() {
+    setMenuOpen(false)
+    setExpanded(null)
+  }
+
   return (
     <>
+      {/* ── Install Banner ── */}
       {showInstallBanner && (
         <div className="fixed top-14 left-0 right-0 z-50 px-4 py-2">
           <div className="vs-card border vs-border rounded-xl p-3 flex items-center gap-3 max-w-5xl mx-auto shadow-lg">
@@ -58,74 +113,174 @@ export default function TopBar() {
         </div>
       )}
 
+      {/* ── Top Bar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 vs-glass border-b vs-border">
         <div className="flex items-center justify-between px-4 h-14 max-w-5xl mx-auto">
           <a href="/" className="text-xl font-extrabold tracking-tight vs-gradient-text">
             VibeScape
           </a>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl vs-hover transition-colors vs-text"
-            aria-label="Menu"
-          >
-            {menuOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Theme toggle in topbar (keep for quick access) */}
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 flex items-center justify-center rounded-xl vs-hover transition-colors vs-text"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl vs-hover transition-colors vs-text"
+              aria-label="Menu"
+            >
+              {menuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
         </div>
       </header>
 
+      {/* ── Side Menu ── */}
       {menuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)}>
+        <div className="fixed inset-0 z-40" onClick={closeMenu}>
+          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40" />
-          <aside className="absolute right-0 top-14 w-64 h-full vs-card border-l vs-border p-4" onClick={e => e.stopPropagation()}>
-            <p className="text-xs font-semibold vs-text-sub uppercase tracking-wider px-4 mb-3">Menu</p>
-            <nav className="flex flex-col gap-1">
-              {sideMenuItems.map(item => (
-                <a key={item.label} href={item.href}
-                  target={item.external ? '_blank' : undefined}
-                  rel={item.external ? 'noopener noreferrer' : undefined}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium vs-text vs-hover transition-colors"
-                  onClick={() => setMenuOpen(false)}>
-                  {item.label}
-                  {item.external && <ExternalLink size={14} className="vs-text-sub" />}
-                </a>
+
+          {/* Drawer */}
+          <aside
+            className="absolute right-0 top-14 w-72 h-[calc(100vh-56px)] vs-card border-l vs-border flex flex-col overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* ── Nav items ── */}
+            <nav className="flex flex-col gap-0.5 p-3 flex-1">
+              {MENU_ITEMS.map(item => (
+                <div key={item.label}>
+                  {item.children ? (
+                    /* Expandable item */
+                    <>
+                      <button
+                        onClick={() => toggleExpand(item.label)}
+                        className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-semibold vs-text vs-hover transition-colors"
+                      >
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          size={16}
+                          className="vs-text-sub transition-transform duration-200"
+                          style={{ transform: expanded === item.label ? 'rotate(180deg)' : 'none' }}
+                        />
+                      </button>
+
+                      {/* Submenu */}
+                      {expanded === item.label && (
+                        <div className="ml-3 mb-1 flex flex-col gap-0.5 border-l-2 pl-3" style={{ borderColor: 'var(--vs-border)' }}>
+                          {item.children.map(child => (
+                            <a
+                              key={child.label}
+                              href={child.href}
+                              onClick={closeMenu}
+                              className="flex items-center px-3 py-2.5 rounded-lg text-sm vs-text-sub vs-hover transition-colors"
+                            >
+                              {child.label}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Regular item */
+                    <a
+                      href={item.href}
+                      target={item.external ? '_blank' : undefined}
+                      rel={item.external ? 'noopener noreferrer' : undefined}
+                      onClick={closeMenu}
+                      className="flex items-center justify-between px-3 py-3 rounded-xl text-sm font-semibold vs-text vs-hover transition-colors"
+                    >
+                      <span>{item.label}</span>
+                      {item.external && <ExternalLink size={14} className="vs-text-sub" />}
+                    </a>
+                  )}
+                </div>
               ))}
+
+              {/* Divider */}
+              <div className="my-2 border-t vs-border" />
+
+              {/* Install App */}
               {installPrompt && (
-                <button onClick={() => { handleInstall(); setMenuOpen(false) }}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium vs-text vs-hover transition-colors">
-                  Install App
+                <button
+                  onClick={() => { handleInstall(); closeMenu() }}
+                  className="flex items-center justify-between px-3 py-3 rounded-xl text-sm font-semibold vs-text vs-hover transition-colors"
+                >
+                  <span>Install App</span>
                   <Download size={14} className="vs-text-sub" />
                 </button>
               )}
+
+              {/* Key status */}
+              <div className="px-3 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key size={14} className="vs-text-sub" />
+                  <span className="text-sm font-semibold vs-text">API Key</span>
+                </div>
+                {hasKey ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-xs" style={{ color: '#22c55e' }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                      Active
+                    </span>
+                    <button
+                      onClick={handleRemoveKey}
+                      className="text-[10px] vs-text-sub hover:underline"
+                    >
+                      remove
+                    </button>
+                  </div>
+                ) : (
+                  <a
+                    href="/ai/create"
+                    onClick={closeMenu}
+                    className="text-xs vs-text-sub hover:underline flex items-center gap-1"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
+                    No key
+                  </a>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="my-1 border-t vs-border" />
+
+              {/* Theme toggle */}
+              <div className="px-3 py-3">
+                <p className="text-[10px] vs-text-sub uppercase tracking-wider mb-2.5 font-semibold">Theme</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { if (theme !== 'dark') toggleTheme() }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor: theme === 'dark' ? 'var(--vs-accent)' : 'var(--vs-card)',
+                      color: theme === 'dark' ? '#fff' : 'var(--vs-text-sub)',
+                      border: `1px solid ${theme === 'dark' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
+                    }}
+                  >
+                    <Moon size={13} /> Dark
+                  </button>
+                  <button
+                    onClick={() => { if (theme !== 'light') toggleTheme() }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor: theme === 'light' ? 'var(--vs-accent)' : 'var(--vs-card)',
+                      color: theme === 'light' ? '#fff' : 'var(--vs-text-sub)',
+                      border: `1px solid ${theme === 'light' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
+                    }}
+                  >
+                    <Sun size={13} /> Light
+                  </button>
+                </div>
+              </div>
             </nav>
-            <div className="mt-6 px-4">
-              <p className="text-xs font-semibold vs-text-sub uppercase tracking-wider mb-2">API Key</p>
-              <KeyStatus />
-            </div>
           </aside>
         </div>
       )}
     </>
-  )
-}
-
-function KeyStatus() {
-  const [hasKey, setHasKey] = useState(false)
-  useEffect(() => { setHasKey(!!localStorage.getItem('vs-user-polli-key')) }, [])
-
-  if (hasKey) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-500" />
-        <span className="text-xs vs-text-sub">Key active</span>
-        <button onClick={() => { localStorage.removeItem('vs-user-polli-key'); setHasKey(false) }}
-          className="text-[10px] vs-text-sub hover:underline ml-auto">remove</button>
-      </div>
-    )
-  }
-  return (
-    <a href="/ai" className="flex items-center gap-2">
-      <span className="w-2 h-2 rounded-full bg-gray-400" />
-      <span className="text-xs vs-text-sub">No key — using free tier</span>
-    </a>
   )
 }
