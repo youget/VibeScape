@@ -58,7 +58,7 @@ export async function POST(request) {
       if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
 
       const encoded = encodeURIComponent(prompt)
-      const params = new URLSearchParams({ model: model || 'grok-video', duration: String(duration || 5), key: userKey })
+      const params = new URLSearchParams({ model: model || 'ltx-2', duration: String(duration || 5), key: userKey })
 
       const videoUrl = `https://gen.pollinations.ai/image/${encoded}?${params}`
       return Response.json({ video: videoUrl })
