@@ -535,7 +535,7 @@ export default function CreatePage() {
       {tab === 'audio' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-5 text-center">
-            <p className="text-[10px] vs-text-sub">Powered by <strong className="vs-text">ElevenLabs</strong> via Pollinations · API key required</p>
+            <p className="text-[10px] vs-text-sub">Powered by <strong className="vs-text">Assembly</strong> via Pollinations · API key required</p>
           </div>
           <div className="flex gap-2 mb-5">
             {[['tts', 'TTS'], ['music', 'Music']].map(([mode, label]) => (
@@ -594,7 +594,7 @@ export default function CreatePage() {
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
-            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">LTX</strong> · API key required</p>
+            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">Nova</strong> · API key required</p>
           </div>
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s</p>
