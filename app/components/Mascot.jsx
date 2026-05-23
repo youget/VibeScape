@@ -7,20 +7,19 @@ import { useTheme } from './ThemeProvider'
 const CHARS = {
   dark: {
     idle: '/mascot-female-idle.webp',
-    wave: '/mascot-female-wave.webp',   // belum ada → fallback idle
-    jump: '/mascot-female-jump.webp',   // belum ada → fallback idle
+    wave: '/mascot-female-wave.webp',   
+    jump: '/mascot-female-jump.webp',   
   },
   light: {
-    idle: '/mascot-male-idle.webp',     // belum ada → fallback female
+    idle: '/mascot-male-idle.webp',     
     wave: '/mascot-male-wave.webp',
     jump: '/mascot-male-jump.webp',
   },
 }
 
-// Which anims are ready (update ke true kalau file sudah ada)
 const READY = {
   dark:  { idle: true,  wave: true, jump: true },
-  light: { idle: false, wave: false, jump: false }, // set true kalau male sudah ada
+  light: { idle: true, wave: false, jump: false }, 
 }
 
 export default function Mascot({ size = 200 }) {
