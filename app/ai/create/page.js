@@ -583,7 +583,7 @@ export default function CreatePage() {
             return (
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Duration: {dur}s
-                  <span className="vs-text-sub font-normal ml-1">({vm.minDur}–{vm.maxDur}s)</span>
+                  <span className="vs-text-sub font-normal ml-1">({vm.minDur}-{vm.maxDur}s)</span>
                 </p>
                 <input type="range" min={vm.minDur} max={vm.maxDur} step="1"
                   value={dur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
