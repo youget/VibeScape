@@ -1,5 +1,12 @@
 export const maxDuration = 60
 
+// Free audio models
+// - tts (default): OpenAI TTS voices, no model param needed
+// - elevenmusic: music generation
+// Free video models
+// - nova-reel: 6-120s, 720p, no PAID badge, supports image input
+// - ltx-2: ALPHA, no PAID badge, supports image input
+
 export async function POST(request) {
   const body = await request.json()
   const { action, messages, prompt, model, userKey, voice, duration, imageUrl, imageBase64 } = body
@@ -51,15 +58,19 @@ export async function POST(request) {
       const encoded = encodeURIComponent(prompt)
       const params = new URLSearchParams({ key: userKey })
 
+      // elevenmusic = music generation, default = TTS (no model param needed)
       const isMusic = model === 'elevenmusic'
       if (isMusic) {
         params.set('model', 'elevenmusic')
+        // music style via voice param (optional)
         if (voice) params.set('voice', voice)
       } else {
+        // TTS — just set voice, NO model param (avoids wrong model like universal-2)
         const ttsVoice = voice || 'nova'
         params.set('voice', ttsVoice)
       }
 
+      // duration only applies to music
       if (isMusic && duration) params.set('duration', String(duration))
 
       const audioUrl = `https://gen.pollinations.ai/audio/${encoded}?${params}`
@@ -72,13 +83,16 @@ export async function POST(request) {
 
       const videoModel = model || 'nova-reel'
 
+      // nova-reel min duration = 6s
       const minDuration = videoModel === 'nova-reel' ? 6 : 5
       const videoDuration = Math.max(parseInt(duration) || minDuration, minDuration)
 
+      // Handle image input: upload base64 to media.pollinations.ai first if provided
       let refImageUrl = imageUrl || null
 
       if (imageBase64 && !refImageUrl) {
         try {
+          // Convert base64 to binary and upload to Pollinations media storage
           const base64Data = imageBase64.replace(/^data:[^;]+;base64,/, '')
           const binaryStr = atob(base64Data)
           const bytes = new Uint8Array(binaryStr.length)
@@ -101,7 +115,8 @@ export async function POST(request) {
           }
         } catch (e) {
           console.log('Image upload failed:', e.message)
-          }
+          // continue without image ref
+        }
       }
 
       const encoded = encodeURIComponent(prompt)
