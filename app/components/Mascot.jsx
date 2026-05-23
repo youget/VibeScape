@@ -19,7 +19,7 @@ const CHARS = {
 
 const READY = {
   dark:  { idle: true,  wave: true, jump: true },
-  light: { idle: true, wave: false, jump: false }, 
+  light: { idle: true, wave: true, jump: false }, 
 }
 
 export default function Mascot({ size = 200 }) {
