@@ -309,6 +309,10 @@ export default function CreatePage() {
     setVideoImagePreview(null)
   }
 
+  // Computed video model values — outside JSX to avoid Turbopack parser issues
+  const curVM = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
+  const curVideoDur = Math.max(videoDuration, curVM.minDur)
+
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Create</span></h1>
@@ -557,8 +561,8 @@ export default function CreatePage() {
             <button onClick={() => setShowVideoModelPicker(!showVideoModelPicker)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
               <span className="flex-1 text-left">
-                {VIDEO_MODELS.find(m => m.id === videoModel)?.label}&nbsp;
-                <span className="vs-text-sub font-normal">{VIDEO_MODELS.find(m => m.id === videoModel)?.desc}</span>
+                {curVM.label}&nbsp;
+                <span className="vs-text-sub font-normal">{curVM.desc}</span>
               </span>
               <ChevronDown size={14} className="vs-text-sub" style={{ transform: showVideoModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
             </button>
@@ -579,16 +583,11 @@ export default function CreatePage() {
           {/* Duration */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">
-              Duration: {Math.max(videoDuration, (VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur)}s
-              <span className="vs-text-sub font-normal ml-1">
-                ({(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur}-{(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).maxDur}s)
-              </span>
+              Duration: {curVideoDur}s
+              <span className="vs-text-sub font-normal ml-1">({curVM.minDur}-{curVM.maxDur}s)</span>
             </p>
-            <input type="range"
-              min={(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur}
-              max={(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).maxDur}
-              step="1"
-              value={Math.max(videoDuration, (VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur)}
+            <input type="range" min={curVM.minDur} max={curVM.maxDur} step="1"
+              value={curVideoDur}
               onChange={e => setVideoDuration(parseInt(e.target.value))}
               className="w-full" />
           </div>
