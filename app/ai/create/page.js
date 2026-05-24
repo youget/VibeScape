@@ -309,7 +309,6 @@ export default function CreatePage() {
     setVideoImagePreview(null)
   }
 
-  // Computed video model values — outside JSX to avoid Turbopack parser issues
   const curVM = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
   const curVideoDur = Math.max(videoDuration, curVM.minDur)
 
@@ -656,8 +655,6 @@ export default function CreatePage() {
           </div>
         </div>
       )}
-        </div>
-      )}
 
       {/* ── READ MORE ── */}
       {readMoreText && (
@@ -743,7 +740,6 @@ export default function CreatePage() {
           </div>
         </div>
       )}
-
     </div>
   )
 }
