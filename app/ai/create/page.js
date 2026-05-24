@@ -452,7 +452,7 @@ export default function CreatePage() {
                 {imgResult.prompt.length > 80 && (
                   <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>
                 )}
-                <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} • Size: {imgResult.size} • Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ` • ${imgResult.style}` : ''}</p>
+                <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} · Size: {imgResult.size} · Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : ''}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1"><Download size={14} /> Download</button>
                   <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1"><RefreshCw size={14} /> Regen</button>
