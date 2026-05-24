@@ -1,57 +1,53 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink, Key,
-  RefreshCw, Play, Music, Film, ImageIcon, X, Heart, Copy, Trash2 } from 'lucide-react'
+import { Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink,
+  RefreshCw, Play, Film, ImageIcon, X, Heart, Copy, Trash2, ArrowRight,
+  Mic, Wand2, Check } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveImage, getRecentImages, compressImage, compressImageToSize, toggleFavorite, clearRecentOnly } from '../../lib/imagedb'
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 
 const IMAGE_MODELS = [
-  { id: 'flux',          label: 'Flux Schnell',     tier: 'free' },
-  { id: 'zimage',        label: 'Z-Image Turbo',    tier: 'byop' },
-  { id: 'klein',         label: 'FLUX.2 Klein 4B',  tier: 'byop' },
-  { id: 'gptimage',      label: 'GPT Image 1 Mini', tier: 'byop' },
-  { id: 'qwen-image',    label: 'Qwen Image Plus',  tier: 'byop' },
-  { id: 'wan-image',     label: 'Wan 2.7 Image',    tier: 'byop' },
-  { id: 'kontext',       label: 'FLUX.1 Kontext',   tier: 'byop' },
-  { id: 'gptimage-large',label: 'GPT Image 1.5',    tier: 'byop' },
-]
-
-const VIDEO_MODELS = [
-  { id: 'nova-reel', label: 'Nova Reel',  desc: '6-120s · 720p · free', minDur: 6,  maxDur: 120, supportsImage: true },
-  { id: 'ltx-2',    label: 'LTX-2.3',    desc: 'ALPHA · fast · free',  minDur: 3,  maxDur: 30,  supportsImage: true },
+  { id: 'flux',           label: 'Flux Schnell',     tier: 'free' },
+  { id: 'zimage',         label: 'Z-Image Turbo',    tier: 'byop' },
+  { id: 'klein',          label: 'FLUX.2 Klein 4B',  tier: 'byop' },
+  { id: 'gptimage',       label: 'GPT Image 1 Mini', tier: 'byop' },
+  { id: 'qwen-image',     label: 'Qwen Image Plus',  tier: 'byop' },
+  { id: 'wan-image',      label: 'Wan 2.7 Image',    tier: 'byop' },
+  { id: 'kontext',        label: 'FLUX.1 Kontext',   tier: 'byop' },
+  { id: 'gptimage-large', label: 'GPT Image 1.5',    tier: 'byop' },
 ]
 
 const STYLES = [
-  { id: 'none', label: 'None', suffix: '' },
-  { id: 'realistic', label: 'Realistic', suffix: ', photorealistic, highly detailed, 8K resolution' },
-  { id: '3d', label: '3D Render', suffix: ', 3D render, octane render, cinema 4D, highly detailed' },
-  { id: 'cartoon', label: 'Cartoon', suffix: ', cartoon style, vibrant colors, playful, fun' },
-  { id: 'anime', label: 'Anime', suffix: ', anime style, manga art, Studio Ghibli inspired' },
-  { id: 'pixel', label: 'Pixel Art', suffix: ', pixel art, 16-bit retro game style' },
+  { id: 'none',       label: 'None',       suffix: '' },
+  { id: 'realistic',  label: 'Realistic',  suffix: ', photorealistic, highly detailed, 8K resolution' },
+  { id: '3d',         label: '3D Render',  suffix: ', 3D render, octane render, cinema 4D, highly detailed' },
+  { id: 'cartoon',    label: 'Cartoon',    suffix: ', cartoon style, vibrant colors, playful, fun' },
+  { id: 'anime',      label: 'Anime',      suffix: ', anime style, manga art, Studio Ghibli inspired' },
+  { id: 'pixel',      label: 'Pixel Art',  suffix: ', pixel art, 16-bit retro game style' },
   { id: 'watercolor', label: 'Watercolor', suffix: ', watercolor painting, soft colors, artistic' },
-  { id: 'oil', label: 'Oil Paint', suffix: ', oil painting, classical art, rich textures' },
-  { id: 'sketch', label: 'Sketch', suffix: ', pencil sketch, hand drawn, detailed linework' },
-  { id: 'cyberpunk', label: 'Cyberpunk', suffix: ', cyberpunk style, neon lights, futuristic city' },
-  { id: 'fantasy', label: 'Fantasy', suffix: ', fantasy art, magical, ethereal, mystical lighting' },
-  { id: 'horror', label: 'Horror', suffix: ', dark horror style, creepy, eerie atmosphere' },
-  { id: 'vintage', label: 'Vintage', suffix: ', vintage photography, retro, film grain, 70s aesthetic' },
-  { id: 'minimal', label: 'Minimal', suffix: ', minimalist, clean lines, simple, modern design' },
-  { id: 'cinematic', label: 'Cinematic', suffix: ', cinematic shot, movie scene, dramatic lighting' },
-  { id: 'popart', label: 'Pop Art', suffix: ', pop art style, Andy Warhol, bold colors, graphic' },
-  { id: 'sticker', label: 'Sticker', suffix: ', sticker design, die-cut, white border, cute' },
-  { id: 'logo', label: 'Logo', suffix: ', logo design, professional, vector style, clean' },
-  { id: 'isometric', label: 'Isometric', suffix: ', isometric 3D, game asset, clean, detailed' },
-  { id: 'neon', label: 'Neon Glow', suffix: ', neon glow effect, dark background, vibrant neon colors' },
+  { id: 'oil',        label: 'Oil Paint',  suffix: ', oil painting, classical art, rich textures' },
+  { id: 'sketch',     label: 'Sketch',     suffix: ', pencil sketch, hand drawn, detailed linework' },
+  { id: 'cyberpunk',  label: 'Cyberpunk',  suffix: ', cyberpunk style, neon lights, futuristic city' },
+  { id: 'fantasy',    label: 'Fantasy',    suffix: ', fantasy art, magical, ethereal, mystical lighting' },
+  { id: 'horror',     label: 'Horror',     suffix: ', dark horror style, creepy, eerie atmosphere' },
+  { id: 'vintage',    label: 'Vintage',    suffix: ', vintage photography, retro, film grain, 70s aesthetic' },
+  { id: 'minimal',    label: 'Minimal',    suffix: ', minimalist, clean lines, simple, modern design' },
+  { id: 'cinematic',  label: 'Cinematic',  suffix: ', cinematic shot, movie scene, dramatic lighting' },
+  { id: 'popart',     label: 'Pop Art',    suffix: ', pop art style, Andy Warhol, bold colors, graphic' },
+  { id: 'sticker',    label: 'Sticker',    suffix: ', sticker design, die-cut, white border, cute' },
+  { id: 'logo',       label: 'Logo',       suffix: ', logo design, professional, vector style, clean' },
+  { id: 'isometric',  label: 'Isometric',  suffix: ', isometric 3D, game asset, clean, detailed' },
+  { id: 'neon',       label: 'Neon Glow',  suffix: ', neon glow effect, dark background, vibrant neon colors' },
 ]
 
 const SIZES = [
-  { label: '1:1', w: 1024, h: 1024 },
+  { label: '1:1',  w: 1024, h: 1024 },
   { label: '16:9', w: 1344, h: 768 },
-  { label: '9:16', w: 768, h: 1344 },
-  { label: '4:3', w: 1152, h: 896 },
-  { label: '3:4', w: 896, h: 1152 },
+  { label: '9:16', w: 768,  h: 1344 },
+  { label: '4:3',  w: 1152, h: 896 },
+  { label: '3:4',  w: 896,  h: 1152 },
 ]
 
 const VOICES = ['alloy','echo','nova','shimmer','onyx','fable','coral','sage','rachel','bella','charlotte','sarah','adam','josh','daniel','james']
@@ -76,18 +72,24 @@ const LOADING_MSGS = [
 ]
 
 const ERR = {
-  quota_exceeded: { emoji: '😭', title: 'Pollen depleted', desc: "Server pollen is out. Add your own API key to keep generating." },
-  invalid_key:    { emoji: '🫠', title: "That key ain't it", desc: 'Double-check your API key and try again.' },
-  rate_limit:     { emoji: '⏳', title: 'Rate limit hit', desc: 'Too many requests. Wait a moment and try again.' },
-  forbidden:      { emoji: '🚫', title: 'Access denied', desc: "Your key might not have access to this model." },
-  server_error:   { emoji: '💤', title: 'Server took a nap', desc: 'Something went wrong on our end. Try again.' },
-  api_error:      { emoji: '🫣', title: 'Something went sideways', desc: 'Give it another shot.' },
+  quota_exceeded: { emoji: '😭', title: 'Pollen depleted',         desc: "Server pollen is out. Add your own API key to keep generating." },
+  invalid_key:    { emoji: '🫠', title: "That key ain't it",        desc: 'Double-check your API key and try again.' },
+  rate_limit:     { emoji: '⏳', title: 'Rate limit hit',           desc: 'Too many requests. Wait a moment and try again.' },
+  forbidden:      { emoji: '🚫', title: 'Access denied',            desc: "Your key might not have access to this model." },
+  server_error:   { emoji: '💤', title: 'Server took a nap',        desc: 'Something went wrong on our end. Try again.' },
+  api_error:      { emoji: '🫣', title: 'Something went sideways',  desc: 'Give it another shot.' },
 }
 
-function getUserKey() { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
+function getUserKey()   { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
 function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catch {} }
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
+
+const tabs = [
+  { id: 'image', label: 'Image', icon: ImageIcon },
+  { id: 'audio', label: 'Audio', icon: Mic },
+  { id: 'video', label: 'Video', icon: Film },
+]
 
 export default function CreatePage() {
   const [tab, setTab] = useState('image')
@@ -100,6 +102,7 @@ export default function CreatePage() {
   const [errorPopup, setErrorPopup] = useState(null)
   const [readMoreText, setReadMoreText] = useState(null)
   const [confirmClearRecent, setConfirmClearRecent] = useState(false)
+  const [showPollenPopup, setShowPollenPopup] = useState(false)
 
   // Image state
   const [imgPrompt, setImgPrompt] = useState('')
@@ -112,9 +115,14 @@ export default function CreatePage() {
   const [imgResult, setImgResult] = useState(null)
   const [imgError, setImgError] = useState(null)
   const [loadingMsg, setLoadingMsg] = useState('')
-  const [enhanceOn, setEnhanceOn] = useState(false)
   const [recent, setRecent] = useState([])
   const [isFav, setIsFav] = useState(false)
+
+  // Enhance popup state
+  const [showEnhancePopup, setShowEnhancePopup] = useState(false)
+  const [enhancedPrompt, setEnhancedPrompt] = useState('')
+  const [enhanceLoading, setEnhanceLoading] = useState(false)
+  const [originalPromptForEnhance, setOriginalPromptForEnhance] = useState('')
 
   // Audio state
   const [voiceMode, setVoiceMode] = useState('tts')
@@ -127,11 +135,7 @@ export default function CreatePage() {
 
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
-  const [videoDuration, setVideoDuration] = useState(5)
-  const [videoModel, setVideoModel]             = useState('nova-reel')
-  const [showVideoModelPicker, setShowVideoModelPicker] = useState(false)
-  const [videoImageBase64, setVideoImageBase64] = useState(null)
-  const [videoImagePreview, setVideoImagePreview] = useState(null)
+  const [videoDuration, setVideoDuration] = useState(6)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
@@ -186,14 +190,63 @@ export default function CreatePage() {
   const currentStyle = STYLES.find(s => s.id === imgStyle) || STYLES[0]
 
   function getModelTag(m) {
-    if (m.tier === 'free') return ' ✨'
-    return hasKey() ? '' : ' 🔑'
+    if (m.tier === 'free') return ' · free'
+    return hasKey() ? '' : ' · key'
   }
 
   function selectModel(m) {
     if (m.tier === 'byop' && !hasKey()) { openKeyPopup('byop_image', () => { setImgModel(m.id); setShowModelPicker(false) }); return }
     setImgModel(m.id); setShowModelPicker(false)
   }
+
+  // ── Enhance prompt via AI ──────────────────────────────────────────────────
+
+  async function doEnhancePrompt(promptToEnhance) {
+    setEnhanceLoading(true)
+    setEnhancedPrompt('')
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'chat',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt — no preamble, no explanation, nothing else.'
+            },
+            { role: 'user', content: promptToEnhance }
+          ],
+          model: 'gemini-fast'
+        })
+      })
+      const data = await res.json()
+      setEnhancedPrompt(data.result?.trim() || '')
+    } catch {
+      setEnhancedPrompt('')
+    }
+    setEnhanceLoading(false)
+  }
+
+  async function handleEnhanceClick() {
+    if (!imgPrompt.trim()) return
+    const original = imgPrompt.trim()
+    setOriginalPromptForEnhance(original)
+    setShowEnhancePopup(true)
+    await doEnhancePrompt(original)
+  }
+
+  async function handleReEnhance() {
+    await doEnhancePrompt(originalPromptForEnhance)
+  }
+
+  function handleUseEnhanced() {
+    if (enhancedPrompt) setImgPrompt(enhancedPrompt)
+    setShowEnhancePopup(false)
+    setEnhancedPrompt('')
+  }
+
+  // ── Image generate ─────────────────────────────────────────────────────────
 
   async function handleGenerate(overrideSeed) {
     if (!imgPrompt.trim() || imgLoading) return
@@ -213,7 +266,7 @@ export default function CreatePage() {
       const res = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed, enhance: enhanceOn, ...(k && { userKey: k }) }),
+        body: JSON.stringify({ prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed, ...(k && { userKey: k }) }),
       })
 
       if (!res.ok) {
@@ -242,7 +295,7 @@ export default function CreatePage() {
   }
 
   function handleRegenerate() { if (imgResult) handleGenerate(imgResult.seed) }
-  function handleDownload() { if (!imgResult) return; const a = document.createElement('a'); a.href = imgResult.url; a.download = `viralscape-${Date.now()}.png`; a.click() }
+  function handleDownload() { if (!imgResult) return; const a = document.createElement('a'); a.href = imgResult.url; a.download = `vibescape-${Date.now()}.png`; a.click() }
 
   function handleClickRecent(item) {
     setImgPrompt(item.prompt); if (item.style) setImgStyle(item.style)
@@ -279,7 +332,7 @@ export default function CreatePage() {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
       const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: videoModel, duration: videoDuration, ...(videoImageBase64 && { imageBase64: videoImageBase64 }), userKey: k }) })
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'nova-reel', duration: videoDuration, userKey: k }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
@@ -287,79 +340,59 @@ export default function CreatePage() {
     setVideoLoading(false)
   }
 
-  const tabs = [
-    { id: 'image', label: 'Image', icon: ImageIcon },
-    { id: 'audio', label: 'Audio', icon: Music },
-    { id: 'video', label: 'Video', icon: Film },
-  ]
-
-  function handleVideoImageUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setVideoImageBase64(ev.target.result)
-      setVideoImagePreview(ev.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  function clearVideoImage() {
-    setVideoImageBase64(null)
-    setVideoImagePreview(null)
-  }
-
-  const curVM = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
-  const curVideoDur = Math.max(videoDuration, curVM.minDur)
-
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Create</span></h1>
-      <p className="text-xs vs-text-sub text-center mb-4">generate images, audio & video</p>
+      <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
+      <p className="text-xs vs-text-sub text-center mb-4">create unhinged stuff with artificial brainpower</p>
 
-      {/* Balance bar */}
-      <div className="flex items-center justify-center gap-2 mb-5 flex-wrap">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
-          <Sparkles size={10} style={{ color: 'var(--vs-accent)' }} />
+      {/* ── Balance bar ── */}
+      <div className="flex items-center justify-between gap-2 mb-5">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           {balance !== null
-            ? <span className="vs-text-sub">{balance > 0 ? `${balance.toFixed(3)} pollen` : 'Pollen depleted'}</span>
+            ? <button onClick={() => setShowPollenPopup(true)} className="vs-text-sub hover:underline">
+                {balance > 0 ? `${balance.toFixed(3)} pollen` : 'pollen depleted'}
+              </button>
             : <span className="vs-text-sub">Loading...</span>}
-          {balance !== null && balance <= 0 && !hasKey() && (
-            <button onClick={() => { setKeyReason('quota'); setShowKeyPopup(true) }}
-              className="ml-1 px-2 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: 'var(--vs-accent)' }}>
-              Add Key
+          {userKey ? (
+            <button onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
+              className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
+              key active
+            </button>
+          ) : (
+            <button onClick={() => setShowKeyPopup(true)}
+              className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
+              add key
             </button>
           )}
         </div>
-        {userKey && (
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full vs-card border vs-border text-[10px]">
-            <Key size={9} style={{ color: 'var(--vs-accent)' }} />
-            <span className="vs-text-sub">Key active</span>
-            <button onClick={handleKeyClear} className="ml-1 vs-text-sub hover:underline text-[9px]">remove</button>
-          </div>
-        )}
+        <a href="/ai/chat"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity">
+          Chat Tools <ArrowRight size={10} />
+        </a>
       </div>
 
-      {/* Tab bar */}
+      {/* Tab bar with icons */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
-        {tabs.map(t => { const Icon = t.icon; return (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-            style={{ backgroundColor: tab === t.id ? 'var(--vs-accent)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--vs-text-sub)' }}>
-            <Icon size={14} />{t.label}
-          </button>
-        )})}
+        {tabs.map(t => {
+          const Icon = t.icon
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+              style={{ backgroundColor: tab === t.id ? 'var(--vs-accent)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--vs-text-sub)' }}>
+              <Icon size={11} />
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── IMAGE ── */}
       {tab === 'image' && (
         <div>
-          {/* Model picker */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Model</p>
             <button onClick={() => setShowModelPicker(!showModelPicker)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
-              <Sparkles size={12} style={{ color: 'var(--vs-accent)' }} />
               <span className="flex-1 text-left">{currentImgModel.label}{getModelTag(currentImgModel)}</span>
               <ChevronDown size={14} className="vs-text-sub" style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
             </button>
@@ -369,15 +402,15 @@ export default function CreatePage() {
                   <button key={m.id} onClick={() => selectModel(m)}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
                     style={{ color: imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                    <span className="flex-1 text-left font-semibold">{m.label}{getModelTag(m)}</span>
+                    <span className="flex-1 text-left font-semibold">{m.label}</span>
+                    <span className="vs-text-sub text-[10px]">{m.tier === 'free' ? 'free' : 'key'}</span>
                   </button>
                 ))}
               </div>
             )}
-            <p className="text-[10px] vs-text-sub mt-1.5">✨ Free tier • 🔑 Requires API key</p>
+            <p className="text-[10px] vs-text-sub mt-1.5">free · no key needed &nbsp;|&nbsp; key · your own API key</p>
           </div>
 
-          {/* Size */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Size</p>
             <div className="flex gap-2">
@@ -390,7 +423,6 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={imgPrompt} onChange={e => setImgPrompt(e.target.value)}
@@ -398,18 +430,25 @@ export default function CreatePage() {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
             <div className="grid grid-cols-3 gap-2 mt-2">
+              {/* Random */}
               <button onClick={() => setImgPrompt(RANDOM_PROMPTS[Math.floor(Math.random() * RANDOM_PROMPTS.length)])}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
-              <label className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub cursor-pointer">
-                <input type="checkbox" checked={enhanceOn} onChange={e => setEnhanceOn(e.target.checked)} className="w-3.5 h-3.5 rounded" />
-                <Sparkles size={12} /> Enhance
-              </label>
+              {/* Enhance — now a real button, triggers AI popup */}
+              <button
+                onClick={handleEnhanceClick}
+                disabled={!imgPrompt.trim()}
+                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
+                style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}
+              >
+                <Wand2 size={12} /> Enhance
+              </button>
+              {/* Style */}
               <div className="relative">
                 <button onClick={() => setShowStylePicker(!showStylePicker)}
                   className="w-full flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
-                  🎨 {currentStyle.label}
+                  Style: {currentStyle.label}
                   <ChevronDown size={12} style={{ transform: showStylePicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
                 </button>
                 {showStylePicker && (
@@ -428,7 +467,7 @@ export default function CreatePage() {
           </div>
 
           <button onClick={() => handleGenerate()} disabled={imgLoading || !imgPrompt.trim()}
-            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: imgLoading || !imgPrompt.trim() ? 0.5 : 1 }}>
             {imgLoading ? (<><Loader2 size={16} className="animate-spin" /> {loadingMsg}</>) : (<><Sparkles size={16} /> Generate</>)}
           </button>
@@ -457,8 +496,8 @@ export default function CreatePage() {
                 )}
                 <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} · Size: {imgResult.size} · Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : ''}</p>
                 <div className="flex gap-2">
-                  <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1"><Download size={14} /> Download</button>
-                  <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1"><RefreshCw size={14} /> Regen</button>
+                  <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
+                  <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
                   <button onClick={handleSaveToFav} className="vs-btn-outline py-2.5 px-3 rounded-xl text-xs font-semibold"
                     style={{ borderColor: isFav ? 'var(--vs-accent)' : undefined, color: isFav ? 'var(--vs-accent)' : undefined }}>
                     <Heart size={14} fill={isFav ? 'var(--vs-accent)' : 'none'} />
@@ -482,11 +521,11 @@ export default function CreatePage() {
                   <button key={item.id || i} onClick={() => handleClickRecent(item)}
                     className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border vs-border vs-hover relative">
                     {item.thumbnail ? <img src={item.thumbnail} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full vs-bg2 flex items-center justify-center"><ImageIcon size={14} className="vs-text-sub" /></div>}
-                    {item.favorite && <span className="absolute top-0.5 right-0.5 text-[8px]">❤️</span>}
+                    {item.favorite && <span className="absolute top-0.5 right-0.5 text-[8px]">♥</span>}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] vs-text-sub mt-2">Last 10 generations. Use ❤️ to save permanently.</p>
+              <p className="text-[10px] vs-text-sub mt-2">Last 10 generations. Use ♥ to save permanently.</p>
             </div>
           )}
         </div>
@@ -496,7 +535,7 @@ export default function CreatePage() {
       {tab === 'audio' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-5 text-center">
-            <p className="text-[10px] vs-text-sub">Powered by <strong className="vs-text">ElevenLabs</strong> via Pollinations • API key required</p>
+            <p className="text-[10px] vs-text-sub">Powered by <strong className="vs-text">Assembly</strong> via Pollinations · API key required</p>
           </div>
           <div className="flex gap-2 mb-5">
             {[['tts', 'TTS'], ['music', 'Music']].map(([mode, label]) => (
@@ -528,12 +567,12 @@ export default function CreatePage() {
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">{voiceMode === 'tts' ? 'Text to speak' : 'Describe the music'}</p>
             <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
-              placeholder={voiceMode === 'tts' ? 'Type what you want to hear...' : 'A chill lo-fi beat with rain sounds...'} rows={3}
-              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
+              placeholder={voiceMode === 'tts' ? 'Type what you want to hear...' : 'A chill lo-fi beat with rain sounds...'}
+              rows={3} className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
           <button onClick={handleVoiceGenerate} disabled={voiceLoading || !voiceText.trim()}
-            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2"
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: voiceLoading || !voiceText.trim() ? 0.5 : 1 }}>
             {voiceLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Play size={16} /> Generate</>)}
           </button>
@@ -541,7 +580,7 @@ export default function CreatePage() {
           {voiceResult && (
             <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
               <audio controls src={voiceResult} className="w-full" />
-              <a href={voiceResult} download={`viralscape-${voiceMode}-${Date.now()}.mp3`}
+              <a href={voiceResult} download={`vibescape-${voiceMode}-${Date.now()}.mp3`}
                 className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
                 <Download size={14} /> Download
               </a>
@@ -554,66 +593,13 @@ export default function CreatePage() {
       {/* ── VIDEO ── */}
       {tab === 'video' && (
         <div>
-          {/* Model picker */}
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Model</p>
-            <button onClick={() => setShowVideoModelPicker(!showVideoModelPicker)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
-              <span className="flex-1 text-left">
-                {curVM.label}&nbsp;
-                <span className="vs-text-sub font-normal">{curVM.desc}</span>
-              </span>
-              <ChevronDown size={14} className="vs-text-sub" style={{ transform: showVideoModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </button>
-            {showVideoModelPicker && (
-              <div className="vs-card border vs-border rounded-xl mt-1">
-                {VIDEO_MODELS.map(m => (
-                  <button key={m.id} onClick={() => { setVideoModel(m.id); setShowVideoModelPicker(false); setVideoDuration(m.minDur) }}
-                    className="w-full flex items-center gap-2 px-3 py-3 text-xs vs-hover border-b vs-border last:border-b-0"
-                    style={{ color: videoModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                    <span className="font-semibold flex-1 text-left">{m.label}</span>
-                    <span className="vs-text-sub">{m.desc}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
+            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">Nova</strong> · API key required</p>
           </div>
-
-          {/* Duration */}
           <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">
-              Duration: {curVideoDur}s
-              <span className="vs-text-sub font-normal ml-1">({curVM.minDur}-{curVM.maxDur}s)</span>
-            </p>
-            <input type="range" min={curVM.minDur} max={curVM.maxDur} step="1"
-              value={curVideoDur}
-              onChange={e => setVideoDuration(parseInt(e.target.value))}
-              className="w-full" />
+            <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s</p>
+            <input type="range" min="6" max="10" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
           </div>
-
-          {/* Reference image upload */}
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
-            {videoImagePreview ? (
-              <div className="relative inline-block">
-                <img src={videoImagePreview} alt="ref" className="w-24 h-24 object-cover rounded-xl border vs-border" />
-                <button onClick={clearVideoImage}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                  style={{ backgroundColor: '#EF4444' }}>
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
-                <ImageIcon size={14} className="vs-text-sub" />
-                <span className="text-xs vs-text-sub">Upload image</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
-              </label>
-            )}
-            <p className="text-[10px] vs-text-sub mt-1.5">Model uses this as a starting reference frame.</p>
-          </div>
-
-          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -621,22 +607,12 @@ export default function CreatePage() {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
-
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading
-              ? (<><Loader2 size={16} className="animate-spin" /> Generating... sit tight</>)
-              : (<><Film size={16} /> Generate Video</>)}
+            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Loading...</>) : (<><Film size={16} /> Generate</>)}
           </button>
-
-          {videoError && (
-            <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4">
-              <p className="text-xl mb-1">💀</p>
-              <p className="text-xs vs-text-sub">{videoError}</p>
-            </div>
-          )}
-
+          {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
           {videoResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
               <video controls src={videoResult} className="w-full" />
@@ -649,9 +625,69 @@ export default function CreatePage() {
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          <div className="vs-card border vs-border rounded-xl p-3 text-center">
-            <p className="text-[10px] vs-text-sub">API key required · Nova Reel &amp; LTX-2 are free tier</p>
+      {/* ── ENHANCE POPUP ── */}
+      {showEnhancePopup && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhancePopup(false) }}>
+          <div className="vs-card rounded-2xl border vs-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b vs-border">
+              <div className="flex items-center gap-2">
+                <Wand2 size={14} style={{ color: 'var(--vs-accent)' }} />
+                <p className="text-sm font-bold vs-text">Prompt Enhanced</p>
+              </div>
+              {!enhanceLoading && (
+                <button onClick={() => setShowEnhancePopup(false)} className="vs-text-sub p-1 rounded-lg vs-hover">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <div className="p-4">
+              {enhanceLoading ? (
+                <div className="flex flex-col items-center py-8 gap-3">
+                  <Loader2 size={28} className="animate-spin vs-text-sub" />
+                  <p className="text-xs vs-text-sub">cooking up something better...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Original → Enhanced */}
+                  <div className="mb-3">
+                    <p className="text-[9px] font-bold vs-text-sub uppercase tracking-wider mb-1.5">Original</p>
+                    <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
+                  </div>
+                  <div className="mb-4">
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced ✨</p>
+                    <div className="rounded-xl p-3 max-h-36 overflow-y-auto" style={{ background: 'var(--vs-bg)' }}>
+                      <p className="text-[11px] vs-text leading-relaxed">
+                        {enhancedPrompt || 'No result. Try re-enhancing.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleUseEnhanced}
+                      disabled={!enhancedPrompt}
+                      className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+                      style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
+                      <Check size={12} /> Use it
+                    </button>
+                    <button
+                      onClick={handleReEnhance}
+                      className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
+                      <RefreshCw size={12} /> Re-enhance
+                    </button>
+                    <button
+                      onClick={() => setShowEnhancePopup(false)}
+                      className="px-3 py-2.5 rounded-xl text-xs font-semibold vs-text-sub border vs-border vs-hover">
+                      Nope
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -678,11 +714,52 @@ export default function CreatePage() {
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
             <p className="text-4xl mb-3">🗑️</p>
             <h3 className="text-lg font-bold vs-text mb-2">Clear recent?</h3>
-            <p className="text-sm vs-text-sub mb-5">Non-favorited images will be removed. Your ❤️ favorites stay safe.</p>
+            <p className="text-sm vs-text-sub mb-5">Non-favorited images will be removed. Your ♥ favorites stay safe.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmClearRecent(false)} className="flex-1 vs-btn-outline px-4 py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
               <button onClick={handleClearRecent} className="flex-1 vs-btn px-4 py-2.5 rounded-xl text-sm font-semibold">Clear</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── POLLEN POPUP — 2 variants ── */}
+      {showPollenPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
+          <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
+            {!userKey ? (
+              <>
+                <p className="text-4xl mb-3">🌼</p>
+                <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
+                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
+                  <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
+                </div>
+                <p className="text-xs vs-text-sub leading-relaxed mb-2">resets every hour whether you&apos;re ready or not 💀</p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">it&apos;s giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑</p>
+                <button onClick={() => { setShowPollenPopup(false); setShowKeyPopup(true) }}
+                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
+                  Add API Key — Skip the Queue
+                </button>
+                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">got it, i&apos;ll wait</button>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl mb-3">✨</p>
+                <h3 className="text-lg font-bold vs-text mb-2">you&apos;re built different</h3>
+                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
+                  <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
+                </div>
+                <p className="text-xs font-semibold vs-text-sub mb-1">🔑 key: {userKey.slice(0, 8)}...</p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤</p>
+                <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
+                  className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
+                  Manage Key
+                </button>
+                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">close</button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -693,23 +770,27 @@ export default function CreatePage() {
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
               <p className="text-4xl mb-2">{keyReason === 'quota' ? '😭' : '🔑'}</p>
-              <h3 className="text-lg font-bold vs-text mb-1">{keyReason === 'quota' ? 'Pollen depleted' : 'API key required'}</h3>
+              <h3 className="text-lg font-bold vs-text mb-1">
+                {keyReason === 'quota' ? 'Pollen depleted' : userKey && keyReason === 'manage' ? 'Manage Key' : 'Add API Key'}
+              </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? 'Server pollen is out. Add your own key to keep generating.' : 'This feature requires your own Pollinations API key.'}
+                {keyReason === 'quota' ? 'Server pollen is out. Add your own key to keep generating.' : 'Your personal Pollinations API key.'}
               </p>
             </div>
-            <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
-              placeholder="Paste your API key..."
-              className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none mb-4"
-              style={{ backgroundColor: 'var(--vs-bg)' }}
-              onKeyDown={e => e.key === 'Enter' && handleKeySave()} />
-            <button onClick={handleKeySave} disabled={!keyInput.trim()}
-              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
-              style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
-              Save Key
-            </button>
+            {(!userKey || keyReason !== 'manage') && (
+              <>
+                <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
+                  placeholder="Paste your API key..." onKeyDown={e => e.key === 'Enter' && handleKeySave()}
+                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none mb-4"
+                  style={{ backgroundColor: 'var(--vs-bg)' }} />
+                <button onClick={handleKeySave} disabled={!keyInput.trim()}
+                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
+                  style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
+                  Save Key
+                </button>
+              </>
+            )}
             <div className="text-center mb-3">
-              <p className="text-[10px] vs-text-sub mb-2">Don't have a key?</p>
               <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
                 className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
                 Get one at Pollinations <ExternalLink size={12} />
@@ -717,14 +798,12 @@ export default function CreatePage() {
             </div>
             {userKey && (
               <div className="pt-3 border-t vs-border text-center">
-                <p className="text-[10px] vs-text-sub mb-1">Active key detected</p>
+                <p className="text-[10px] vs-text-sub mb-1">Active key: {userKey.slice(0, 8)}...</p>
                 <button onClick={() => { handleKeyClear(); setShowKeyPopup(false) }} className="text-[10px] vs-text-sub hover:underline">Remove key</button>
               </div>
             )}
             <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}
-              className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">
-              Maybe later
-            </button>
+              className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">Close</button>
           </div>
         </div>
       )}
