@@ -19,6 +19,11 @@ const IMAGE_MODELS = [
   { id: 'gptimage-large', label: 'GPT Image 1.5',    tier: 'byop' },
 ]
 
+const VIDEO_MODELS = [
+  { id: 'nova-reel', label: 'Nova Reel',  desc: '6-120s · 720p', minDur: 6,  maxDur: 120 },
+  { id: 'ltx-2',    label: 'LTX-2.3',    desc: '5-30s · ALPHA', minDur: 5,  maxDur: 30 },
+]
+
 const STYLES = [
   { id: 'none',       label: 'None',       suffix: '' },
   { id: 'realistic',  label: 'Realistic',  suffix: ', photorealistic, highly detailed, 8K resolution' },
@@ -85,7 +90,7 @@ function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catc
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
-const tabs = [
+const uiTabs = [
   { id: 'image', label: 'Image', icon: ImageIcon },
   { id: 'audio', label: 'Audio', icon: Mic },
   { id: 'video', label: 'Video', icon: Film },
@@ -136,6 +141,10 @@ export default function CreatePage() {
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
   const [videoDuration, setVideoDuration] = useState(6)
+  const [videoModel, setVideoModel] = useState('nova-reel')
+  const [showVideoModelPicker, setShowVideoModelPicker] = useState(false)
+  const [videoImageBase64, setVideoImageBase64] = useState(null)
+  const [videoImagePreview, setVideoImagePreview] = useState(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
@@ -188,6 +197,8 @@ export default function CreatePage() {
 
   const currentImgModel = IMAGE_MODELS.find(m => m.id === imgModel) || IMAGE_MODELS[0]
   const currentStyle = STYLES.find(s => s.id === imgStyle) || STYLES[0]
+  const curVM = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
+  const curVideoDur = Math.max(Math.min(videoDuration, curVM.maxDur), curVM.minDur)
 
   function getModelTag(m) {
     if (m.tier === 'free') return ' · free'
@@ -198,8 +209,6 @@ export default function CreatePage() {
     if (m.tier === 'byop' && !hasKey()) { openKeyPopup('byop_image', () => { setImgModel(m.id); setShowModelPicker(false) }); return }
     setImgModel(m.id); setShowModelPicker(false)
   }
-
-  // ── Enhance prompt via AI ──────────────────────────────────────────────────
 
   async function doEnhancePrompt(promptToEnhance) {
     setEnhanceLoading(true)
@@ -245,8 +254,6 @@ export default function CreatePage() {
     setShowEnhancePopup(false)
     setEnhancedPrompt('')
   }
-
-  // ── Image generate ─────────────────────────────────────────────────────────
 
   async function handleGenerate(overrideSeed) {
     if (!imgPrompt.trim() || imgLoading) return
@@ -323,6 +330,22 @@ export default function CreatePage() {
     setVoiceLoading(false)
   }
 
+  function handleVideoImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setVideoImageBase64(ev.target.result)
+      setVideoImagePreview(ev.target.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function clearVideoImage() {
+    setVideoImageBase64(null)
+    setVideoImagePreview(null)
+  }
+
   async function handleVideoGenerate() {
     if (!videoPrompt.trim() || videoLoading) return
     const k = getUserKey(); if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
@@ -332,7 +355,7 @@ export default function CreatePage() {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
       const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'nova-reel', duration: videoDuration, userKey: k }) })
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: videoModel, duration: curVideoDur, imageBase64: videoImageBase64, userKey: k }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
@@ -373,7 +396,7 @@ export default function CreatePage() {
 
       {/* Tab bar with icons */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
-        {tabs.map(t => {
+        {uiTabs.map(t => {
           const Icon = t.icon
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -430,21 +453,15 @@ export default function CreatePage() {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
             <div className="grid grid-cols-3 gap-2 mt-2">
-              {/* Random */}
               <button onClick={() => setImgPrompt(RANDOM_PROMPTS[Math.floor(Math.random() * RANDOM_PROMPTS.length)])}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
-              {/* Enhance — now a real button, triggers AI popup */}
-              <button
-                onClick={handleEnhanceClick}
-                disabled={!imgPrompt.trim()}
+              <button onClick={handleEnhanceClick} disabled={!imgPrompt.trim()}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
-                style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}
-              >
+                style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}>
                 <Wand2 size={12} /> Enhance
               </button>
-              {/* Style */}
               <div className="relative">
                 <button onClick={() => setShowStylePicker(!showStylePicker)}
                   className="w-full flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
@@ -594,12 +611,60 @@ export default function CreatePage() {
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
-            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">Nova</strong> · API key required</p>
+            <p className="text-[10px] vs-text-sub">API key required · Models support image-to-video</p>
           </div>
+
+          {/* Model picker */}
           <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s</p>
-            <input type="range" min="6" max="10" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
+            <p className="text-xs font-semibold vs-text mb-2">Model</p>
+            <button onClick={() => setShowVideoModelPicker(!showVideoModelPicker)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
+              <span className="flex-1 text-left">{curVM.label} <span className="vs-text-sub font-normal">{curVM.desc}</span></span>
+              <ChevronDown size={14} className="vs-text-sub" style={{ transform: showVideoModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+            </button>
+            {showVideoModelPicker && (
+              <div className="vs-card border vs-border rounded-xl mt-1">
+                {VIDEO_MODELS.map(m => (
+                  <button key={m.id} onClick={() => { setVideoModel(m.id); setVideoDuration(m.minDur); setShowVideoModelPicker(false) }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
+                    style={{ color: videoModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
+                    <span className="font-semibold flex-1 text-left">{m.label}</span>
+                    <span className="vs-text-sub">{m.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Duration */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">Duration: {curVideoDur}s <span className="vs-text-sub font-normal">({curVM.minDur}-{curVM.maxDur}s)</span></p>
+            <input type="range" min={curVM.minDur} max={curVM.maxDur} step="1" value={curVideoDur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
+          </div>
+
+          {/* Reference image upload */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
+            {videoImagePreview ? (
+              <div className="relative inline-block">
+                <img src={videoImagePreview} alt="ref" className="w-24 h-24 object-cover rounded-xl border vs-border" />
+                <button onClick={clearVideoImage}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white"
+                  style={{ backgroundColor: '#EF4444' }}>
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
+                <ImageIcon size={14} className="vs-text-sub" />
+                <span className="text-xs vs-text-sub">Upload image</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
+              </label>
+            )}
+            <p className="text-[10px] vs-text-sub mt-1.5">Model uses this as a starting frame.</p>
+          </div>
+
+          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -607,11 +672,13 @@ export default function CreatePage() {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
+
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Loading...</>) : (<><Film size={16} /> Generate</>)}
+            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating video...</>) : (<><Film size={16} /> Generate</>)}
           </button>
+
           {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
           {videoResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
@@ -652,7 +719,6 @@ export default function CreatePage() {
                 </div>
               ) : (
                 <>
-                  {/* Original → Enhanced */}
                   <div className="mb-3">
                     <p className="text-[9px] font-bold vs-text-sub uppercase tracking-wider mb-1.5">Original</p>
                     <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
@@ -667,20 +733,16 @@ export default function CreatePage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={handleUseEnhanced}
-                      disabled={!enhancedPrompt}
+                    <button onClick={handleUseEnhanced} disabled={!enhancedPrompt}
                       className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
                       style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
                       <Check size={12} /> Use it
                     </button>
-                    <button
-                      onClick={handleReEnhance}
+                    <button onClick={handleReEnhance}
                       className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
                       <RefreshCw size={12} /> Re-enhance
                     </button>
-                    <button
-                      onClick={() => setShowEnhancePopup(false)}
+                    <button onClick={() => setShowEnhancePopup(false)}
                       className="px-3 py-2.5 rounded-xl text-xs font-semibold vs-text-sub border vs-border vs-hover">
                       Nope
                     </button>
@@ -723,7 +785,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── POLLEN POPUP — 2 variants ── */}
+      {/* ── POLLEN POPUP ── */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
