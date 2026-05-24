@@ -313,22 +313,37 @@ export default function CreatePage() {
   async function handleClearRecent() { await clearRecentOnly(); await loadRecent(); setConfirmClearRecent(false); toast('Recent cleared!') }
   async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Copied!') } catch { toast('Failed to copy') } }
 
-  async function handleVoiceGenerate() {
-    if (!voiceText.trim() || voiceLoading) return
-    const k = getUserKey(); if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
-    doVoice(k)
+async function handleVoiceGenerate() {
+  if (!voiceText.trim() || voiceLoading) return
+  const k = getUserKey()
+  if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
+  doVoice(k)
+}
+
+async function doVoice(k) {
+  setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
+  try {
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'audio',
+        prompt: voiceText.trim(),
+        model: voiceMode === 'music' ? 'elevenmusic' : undefined, // ✅ TTS: undefined
+        voice: voiceMode === 'music' ? voiceVoice : (voiceVoice || 'nova'), // ✅ TTS: voice, Music: style
+        duration: voiceMode === 'music' ? voiceDuration : undefined,
+        userKey: k
+      })
+    })
+    const data = await res.json()
+    if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
+    setVoiceResult(data.audio)
+    toast('Audio ready!')
+  } catch (e) {
+    setVoiceError(e.message || 'Failed to generate audio')
   }
-  async function doVoice(k) {
-    setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
-    try {
-      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'music' ? 'elevenmusic' : undefined, voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }) })
-      const data = await res.json()
-      if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
-      setVoiceResult(data.audio)
-    } catch { setVoiceError('Failed. Try again?') }
-    setVoiceLoading(false)
-  }
+  setVoiceLoading(false)
+}
 
   function handleVideoImageUpload(e) {
     const file = e.target.files?.[0]
@@ -347,21 +362,36 @@ export default function CreatePage() {
   }
 
   async function handleVideoGenerate() {
-    if (!videoPrompt.trim() || videoLoading) return
-    const k = getUserKey(); if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
-    doVideo(k)
+  if (!videoPrompt.trim() || videoLoading) return
+  const k = getUserKey()
+  if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
+  doVideo(k)
+}
+
+async function doVideo(k) {
+  setVideoLoading(true); setVideoError(null); setVideoResult(null)
+  try {
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'video',
+        prompt: videoPrompt.trim(),
+        model: videoModel,
+        duration: curVideoDur,
+        imageBase64: videoImageBase64 || undefined,
+        userKey: k
+      })
+    })
+    const data = await res.json()
+    if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
+    setVideoResult(data.video)
+    toast('Video ready!')
+  } catch (e) {
+    setVideoError(e.message || 'Failed to generate video')
   }
-  async function doVideo(k) {
-    setVideoLoading(true); setVideoError(null); setVideoResult(null)
-    try {
-      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: videoModel, duration: curVideoDur, imageBase64: videoImageBase64, userKey: k }) })
-      const data = await res.json()
-      if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
-      setVideoResult(data.video)
-    } catch { setVideoError('Failed. Try again?') }
-    setVideoLoading(false)
-  }
+  setVideoLoading(false)
+}
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
