@@ -576,20 +576,22 @@ export default function CreatePage() {
             )}
           </div>
 
-          {/* Duration — respects model min/max */}
-          {(() => {
-            const vm = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
-            const dur = Math.max(videoDuration, vm.minDur)
-            return (
-              <div className="mb-4">
-                <p className="text-xs font-semibold vs-text mb-2">Duration: {dur}s
-                  <span className="vs-text-sub font-normal ml-1">({vm.minDur}-{vm.maxDur}s)</span>
-                </p>
-                <input type="range" min={vm.minDur} max={vm.maxDur} step="1"
-                  value={dur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
-              </div>
-            )
-          })()}
+          {/* Duration */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">
+              Duration: {Math.max(videoDuration, (VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur)}s
+              <span className="vs-text-sub font-normal ml-1">
+                ({(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur}-{(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).maxDur}s)
+              </span>
+            </p>
+            <input type="range"
+              min={(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur}
+              max={(VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).maxDur}
+              step="1"
+              value={Math.max(videoDuration, (VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]).minDur)}
+              onChange={e => setVideoDuration(parseInt(e.target.value))}
+              className="w-full" />
+          </div>
 
           {/* Reference image upload */}
           <div className="mb-4">
