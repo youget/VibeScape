@@ -19,11 +19,6 @@ const IMAGE_MODELS = [
   { id: 'gptimage-large', label: 'GPT Image 1.5',    tier: 'byop' },
 ]
 
-const VIDEO_MODELS = [
-  { id: 'nova-reel', label: 'Nova Reel',  desc: '6-120s · 720p', minDur: 6,  maxDur: 120 },
-  { id: 'ltx-2',    label: 'LTX-2.3',    desc: '5-30s · ALPHA', minDur: 5,  maxDur: 30 },
-]
-
 const STYLES = [
   { id: 'none',       label: 'None',       suffix: '' },
   { id: 'realistic',  label: 'Realistic',  suffix: ', photorealistic, highly detailed, 8K resolution' },
@@ -90,7 +85,7 @@ function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catc
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
-const uiTabs = [
+const tabs = [
   { id: 'image', label: 'Image', icon: ImageIcon },
   { id: 'audio', label: 'Audio', icon: Mic },
   { id: 'video', label: 'Video', icon: Film },
@@ -141,10 +136,6 @@ export default function CreatePage() {
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
   const [videoDuration, setVideoDuration] = useState(6)
-  const [videoModel, setVideoModel] = useState('nova-reel')
-  const [showVideoModelPicker, setShowVideoModelPicker] = useState(false)
-  const [videoImageBase64, setVideoImageBase64] = useState(null)
-  const [videoImagePreview, setVideoImagePreview] = useState(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
@@ -197,8 +188,6 @@ export default function CreatePage() {
 
   const currentImgModel = IMAGE_MODELS.find(m => m.id === imgModel) || IMAGE_MODELS[0]
   const currentStyle = STYLES.find(s => s.id === imgStyle) || STYLES[0]
-  const curVM = VIDEO_MODELS.find(m => m.id === videoModel) || VIDEO_MODELS[0]
-  const curVideoDur = Math.max(Math.min(videoDuration, curVM.maxDur), curVM.minDur)
 
   function getModelTag(m) {
     if (m.tier === 'free') return ' · free'
@@ -313,92 +302,48 @@ export default function CreatePage() {
   async function handleClearRecent() { await clearRecentOnly(); await loadRecent(); setConfirmClearRecent(false); toast('Recent cleared!') }
   async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Copied!') } catch { toast('Failed to copy') } }
 
-async function handleVoiceGenerate() {
-  if (!voiceText.trim() || voiceLoading) return
-  const k = getUserKey()
-  if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
-  doVoice(k)
-}
-
-async function doVoice(k) {
-  setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
-  try {
-    const res = await fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'audio',
-        prompt: voiceText.trim(),
-        model: voiceMode === 'music' ? 'elevenmusic' : undefined, // ✅ TTS: undefined
-        voice: voiceMode === 'music' ? voiceVoice : (voiceVoice || 'nova'), // ✅ TTS: voice, Music: style
-        duration: voiceMode === 'music' ? voiceDuration : undefined,
-        userKey: k
-      })
-    })
-    const data = await res.json()
-    if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
-    setVoiceResult(data.audio)
-    toast('Audio ready!')
-  } catch (e) {
-    setVoiceError(e.message || 'Failed to generate audio')
+  async function handleVoiceGenerate() {
+    if (!voiceText.trim() || voiceLoading) return
+    const k = getUserKey(); if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
+    doVoice(k)
   }
-  setVoiceLoading(false)
-}
-
-  function handleVideoImageUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setVideoImageBase64(ev.target.result)
-      setVideoImagePreview(ev.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  function clearVideoImage() {
-    setVideoImageBase64(null)
-    setVideoImagePreview(null)
+  async function doVoice(k) {
+    setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
+    try {
+      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // FIX 3: TTS has no model param (undefined), music uses elevenmusic
+        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'music' ? 'elevenmusic' : undefined, voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }) })
+      const data = await res.json()
+      if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
+      setVoiceResult(data.audio)
+    } catch { setVoiceError('Failed. Try again?') }
+    setVoiceLoading(false)
   }
 
   async function handleVideoGenerate() {
-  if (!videoPrompt.trim() || videoLoading) return
-  const k = getUserKey()
-  if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
-  doVideo(k)
-}
-
-async function doVideo(k) {
-  setVideoLoading(true); setVideoError(null); setVideoResult(null)
-  try {
-    const res = await fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'video',
-        prompt: videoPrompt.trim(),
-        model: videoModel,
-        duration: curVideoDur,
-        imageBase64: videoImageBase64 || undefined,
-        userKey: k
-      })
-    })
-    const data = await res.json()
-    if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
-    setVideoResult(data.video)
-    toast('Video ready!')
-  } catch (e) {
-    setVideoError(e.message || 'Failed to generate video')
+    if (!videoPrompt.trim() || videoLoading) return
+    const k = getUserKey(); if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
+    doVideo(k)
   }
-  setVideoLoading(false)
-}
+  async function doVideo(k) {
+    setVideoLoading(true); setVideoError(null); setVideoResult(null)
+    try {
+      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // FIX 4: nova-reel (not grok-video), duration clamped to min 6
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'nova-reel', duration: Math.max(videoDuration, 6), userKey: k }) })
+      const data = await res.json()
+      if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
+      setVideoResult(data.video)
+    } catch { setVideoError('Failed. Try again?') }
+    setVideoLoading(false)
+  }
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
       <p className="text-xs vs-text-sub text-center mb-4">create unhinged stuff with artificial brainpower</p>
 
-      {/* ── Balance bar ── */}
+      {/* Balance bar */}
       <div className="flex items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           {balance !== null
@@ -424,9 +369,9 @@ async function doVideo(k) {
         </a>
       </div>
 
-      {/* Tab bar with icons */}
+      {/* Tab bar */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
-        {uiTabs.map(t => {
+        {tabs.map(t => {
           const Icon = t.icon
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -439,7 +384,7 @@ async function doVideo(k) {
         })}
       </div>
 
-      {/* ── IMAGE ── */}
+      {/* IMAGE */}
       {tab === 'image' && (
         <div>
           <div className="mb-4">
@@ -487,7 +432,9 @@ async function doVideo(k) {
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
-              <button onClick={handleEnhanceClick} disabled={!imgPrompt.trim()}
+              <button
+                onClick={handleEnhanceClick}
+                disabled={!imgPrompt.trim()}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
                 style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}>
                 <Wand2 size={12} /> Enhance
@@ -541,7 +488,8 @@ async function doVideo(k) {
                 {imgResult.prompt.length > 80 && (
                   <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>
                 )}
-                <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} · Size: {imgResult.size} · Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : ''}</p>
+                {/* FIX 2: string concat instead of template literal to avoid Turbopack regex parse error */}
+                <p className="text-[10px] vs-text-sub mb-3">{'Model: ' + imgResult.model + ' · Size: ' + imgResult.size + ' · Seed: ' + imgResult.seed + (imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : '')}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
                   <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
@@ -578,7 +526,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── AUDIO ── */}
+      {/* AUDIO */}
       {tab === 'audio' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-5 text-center">
@@ -637,64 +585,16 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── VIDEO ── */}
+      {/* VIDEO */}
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
-            <p className="text-[10px] vs-text-sub">API key required · Models support image-to-video</p>
+            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">Nova Reel</strong> · API key required</p>
           </div>
-
-          {/* Model picker */}
           <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Model</p>
-            <button onClick={() => setShowVideoModelPicker(!showVideoModelPicker)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
-              <span className="flex-1 text-left">{curVM.label} <span className="vs-text-sub font-normal">{curVM.desc}</span></span>
-              <ChevronDown size={14} className="vs-text-sub" style={{ transform: showVideoModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </button>
-            {showVideoModelPicker && (
-              <div className="vs-card border vs-border rounded-xl mt-1">
-                {VIDEO_MODELS.map(m => (
-                  <button key={m.id} onClick={() => { setVideoModel(m.id); setVideoDuration(m.minDur); setShowVideoModelPicker(false) }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
-                    style={{ color: videoModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                    <span className="font-semibold flex-1 text-left">{m.label}</span>
-                    <span className="vs-text-sub">{m.desc}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s (6-60s)</p>
+            <input type="range" min="6" max="60" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
           </div>
-
-          {/* Duration */}
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Duration: {curVideoDur}s <span className="vs-text-sub font-normal">({curVM.minDur}-{curVM.maxDur}s)</span></p>
-            <input type="range" min={curVM.minDur} max={curVM.maxDur} step="1" value={curVideoDur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
-          </div>
-
-          {/* Reference image upload */}
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
-            {videoImagePreview ? (
-              <div className="relative inline-block">
-                <img src={videoImagePreview} alt="ref" className="w-24 h-24 object-cover rounded-xl border vs-border" />
-                <button onClick={clearVideoImage}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                  style={{ backgroundColor: '#EF4444' }}>
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
-                <ImageIcon size={14} className="vs-text-sub" />
-                <span className="text-xs vs-text-sub">Upload image</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
-              </label>
-            )}
-            <p className="text-[10px] vs-text-sub mt-1.5">Model uses this as a starting frame.</p>
-          </div>
-
-          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -702,13 +602,11 @@ async function doVideo(k) {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
-
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating video...</>) : (<><Film size={16} /> Generate</>)}
+            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Film size={16} /> Generate</>)}
           </button>
-
           {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
           {videoResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
@@ -725,7 +623,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── ENHANCE POPUP ── */}
+      {/* ENHANCE POPUP */}
       {showEnhancePopup && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhancePopup(false) }}>
           <div className="vs-card rounded-2xl border vs-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
@@ -740,7 +638,6 @@ async function doVideo(k) {
                 </button>
               )}
             </div>
-
             <div className="p-4">
               {enhanceLoading ? (
                 <div className="flex flex-col items-center py-8 gap-3">
@@ -754,14 +651,13 @@ async function doVideo(k) {
                     <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
                   </div>
                   <div className="mb-4">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced ✨</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced</p>
                     <div className="rounded-xl p-3 max-h-36 overflow-y-auto" style={{ background: 'var(--vs-bg)' }}>
                       <p className="text-[11px] vs-text leading-relaxed">
                         {enhancedPrompt || 'No result. Try re-enhancing.'}
                       </p>
                     </div>
                   </div>
-
                   <div className="flex gap-2">
                     <button onClick={handleUseEnhanced} disabled={!enhancedPrompt}
                       className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
@@ -784,7 +680,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── READ MORE ── */}
+      {/* READ MORE */}
       {readMoreText && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => setReadMoreText(null)}>
           <div className="vs-card rounded-2xl p-5 max-w-sm w-full border vs-border max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -800,7 +696,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── CONFIRM CLEAR RECENT ── */}
+      {/* CONFIRM CLEAR RECENT */}
       {confirmClearRecent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setConfirmClearRecent(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -815,7 +711,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── POLLEN POPUP ── */}
+      {/* POLLEN POPUP */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -843,7 +739,7 @@ async function doVideo(k) {
                   <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
                   <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
                 </div>
-                <p className="text-xs font-semibold vs-text-sub mb-1">🔑 key: {userKey.slice(0, 8)}...</p>
+                <p className="text-xs font-semibold vs-text-sub mb-1">key: {userKey.slice(0, 8)}...</p>
                 <p className="text-xs vs-text-sub leading-relaxed mb-4">you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤</p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
                   className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
@@ -856,7 +752,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── KEY POPUP ── */}
+      {/* KEY POPUP */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
@@ -900,7 +796,7 @@ async function doVideo(k) {
         </div>
       )}
 
-      {/* ── ERROR POPUP ── */}
+      {/* ERROR POPUP */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
