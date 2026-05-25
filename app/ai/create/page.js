@@ -85,7 +85,7 @@ function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catc
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
-const tabs = [
+const uiTabs = [
   { id: 'image', label: 'Image', icon: ImageIcon },
   { id: 'audio', label: 'Audio', icon: Mic },
   { id: 'video', label: 'Video', icon: Film },
@@ -135,7 +135,10 @@ export default function CreatePage() {
 
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
-  const [videoDuration, setVideoDuration] = useState(6)
+  const [videoDuration, setVideoDuration] = useState(5)
+  const [videoModel] = useState('ltx-2') // Free/Alpha default
+  const [videoImageBase64, setVideoImageBase64] = useState(null)
+  const [videoImagePreview, setVideoImagePreview] = useState(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
@@ -188,6 +191,8 @@ export default function CreatePage() {
 
   const currentImgModel = IMAGE_MODELS.find(m => m.id === imgModel) || IMAGE_MODELS[0]
   const currentStyle = STYLES.find(s => s.id === imgStyle) || STYLES[0]
+  const minVideoDur = 5; const maxVideoDur = 30;
+  const curVideoDur = Math.min(Math.max(videoDuration, minVideoDur), maxVideoDur)
 
   function getModelTag(m) {
     if (m.tier === 'free') return ' · free'
@@ -200,8 +205,7 @@ export default function CreatePage() {
   }
 
   async function doEnhancePrompt(promptToEnhance) {
-    setEnhanceLoading(true)
-    setEnhancedPrompt('')
+    setEnhanceLoading(true); setEnhancedPrompt('')
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -209,10 +213,7 @@ export default function CreatePage() {
         body: JSON.stringify({
           action: 'chat',
           messages: [
-            {
-              role: 'system',
-              content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt — no preamble, no explanation, nothing else.'
-            },
+            { role: 'system', content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Keep it under 120 words. Return ONLY the enhanced prompt.' },
             { role: 'user', content: promptToEnhance }
           ],
           model: 'gemini-fast'
@@ -220,28 +221,22 @@ export default function CreatePage() {
       })
       const data = await res.json()
       setEnhancedPrompt(data.result?.trim() || '')
-    } catch {
-      setEnhancedPrompt('')
-    }
+    } catch { setEnhancedPrompt('') }
     setEnhanceLoading(false)
   }
 
   async function handleEnhanceClick() {
     if (!imgPrompt.trim()) return
-    const original = imgPrompt.trim()
-    setOriginalPromptForEnhance(original)
+    setOriginalPromptForEnhance(imgPrompt.trim())
     setShowEnhancePopup(true)
-    await doEnhancePrompt(original)
+    await doEnhancePrompt(imgPrompt.trim())
   }
 
-  async function handleReEnhance() {
-    await doEnhancePrompt(originalPromptForEnhance)
-  }
+  async function handleReEnhance() { await doEnhancePrompt(originalPromptForEnhance) }
 
   function handleUseEnhanced() {
     if (enhancedPrompt) setImgPrompt(enhancedPrompt)
-    setShowEnhancePopup(false)
-    setEnhancedPrompt('')
+    setShowEnhancePopup(false); setEnhancedPrompt('')
   }
 
   async function handleGenerate(overrideSeed) {
@@ -257,19 +252,16 @@ export default function CreatePage() {
     const seed = overrideSeed || Math.floor(Math.random() * 999999)
     const fullPrompt = imgPrompt.trim() + currentStyle.suffix
     const k = getUserKey()
-
     try {
       const res = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed, ...(k && { userKey: k }) }),
       })
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         handleApiError(err.error || 'api_error'); setImgLoading(false); return
       }
-
       const blob = await res.blob()
       const blobUrl = URL.createObjectURL(blob)
       const thumb = await compressImage(blobUrl, 100)
@@ -311,13 +303,29 @@ export default function CreatePage() {
     setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
     try {
       const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // FIX 3: TTS has no model param (undefined), music uses elevenmusic
-        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'music' ? 'elevenmusic' : undefined, voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }) })
+        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'music' ? 'acestep' : 'qwen-tts', voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
       setVoiceResult(data.audio)
+      toast('Audio ready!')
     } catch { setVoiceError('Failed. Try again?') }
     setVoiceLoading(false)
+  }
+
+  function handleVideoImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setVideoImageBase64(ev.target.result)
+      setVideoImagePreview(ev.target.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function clearVideoImage() {
+    setVideoImageBase64(null)
+    setVideoImagePreview(null)
   }
 
   async function handleVideoGenerate() {
@@ -329,11 +337,11 @@ export default function CreatePage() {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
       const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // FIX 4: nova-reel (not grok-video), duration clamped to min 6
-        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'nova-reel', duration: Math.max(videoDuration, 6), userKey: k }) })
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'ltx-2', duration: curVideoDur, imageBase64: videoImageBase64 || undefined, userKey: k }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
+      toast('Video ready!')
     } catch { setVideoError('Failed. Try again?') }
     setVideoLoading(false)
   }
@@ -343,7 +351,7 @@ export default function CreatePage() {
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
       <p className="text-xs vs-text-sub text-center mb-4">create unhinged stuff with artificial brainpower</p>
 
-      {/* Balance bar */}
+      {/* ── Balance bar ── */}
       <div className="flex items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           {balance !== null
@@ -371,7 +379,7 @@ export default function CreatePage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
-        {tabs.map(t => {
+        {uiTabs.map(t => {
           const Icon = t.icon
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -384,7 +392,7 @@ export default function CreatePage() {
         })}
       </div>
 
-      {/* IMAGE */}
+      {/* ── IMAGE ── */}
       {tab === 'image' && (
         <div>
           <div className="mb-4">
@@ -432,9 +440,7 @@ export default function CreatePage() {
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
-              <button
-                onClick={handleEnhanceClick}
-                disabled={!imgPrompt.trim()}
+              <button onClick={handleEnhanceClick} disabled={!imgPrompt.trim()}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
                 style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}>
                 <Wand2 size={12} /> Enhance
@@ -488,8 +494,7 @@ export default function CreatePage() {
                 {imgResult.prompt.length > 80 && (
                   <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>
                 )}
-                {/* FIX 2: string concat instead of template literal to avoid Turbopack regex parse error */}
-                <p className="text-[10px] vs-text-sub mb-3">{'Model: ' + imgResult.model + ' · Size: ' + imgResult.size + ' · Seed: ' + imgResult.seed + (imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : '')}</p>
+                <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} · Size: {imgResult.size} · Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : ''}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
                   <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
@@ -526,11 +531,11 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* AUDIO */}
+      {/* ── AUDIO ── */}
       {tab === 'audio' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-5 text-center">
-            <p className="text-[10px] vs-text-sub">Powered by <strong className="vs-text">Assembly</strong> via Pollinations · API key required</p>
+            <p className="text-[10px] vs-text-sub">TTS: <strong className="vs-text">Qwen3-TTS Flash</strong> · Music: <strong className="vs-text">ACE-Step 1.5</strong> · API key required</p>
           </div>
           <div className="flex gap-2 mb-5">
             {[['tts', 'TTS'], ['music', 'Music']].map(([mode, label]) => (
@@ -585,16 +590,39 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* VIDEO */}
+      {/* ── VIDEO ── */}
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
-            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">Nova Reel</strong> · API key required</p>
+            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">LTX-2.3</strong> · 5-30s · Free/Alpha · API key required</p>
           </div>
+          
           <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s (6-60s)</p>
-            <input type="range" min="6" max="60" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
+            <p className="text-xs font-semibold vs-text mb-2">Duration: {curVideoDur}s <span className="vs-text-sub font-normal">(5-30s)</span></p>
+            <input type="range" min={minVideoDur} max={maxVideoDur} step="1" value={curVideoDur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
           </div>
+
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
+            {videoImagePreview ? (
+              <div className="relative inline-block">
+                <img src={videoImagePreview} alt="ref" className="w-24 h-24 object-cover rounded-xl border vs-border" />
+                <button onClick={clearVideoImage}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white"
+                  style={{ backgroundColor: '#EF4444' }}>
+                  <X size={10} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
+                <ImageIcon size={14} className="vs-text-sub" />
+                <span className="text-xs vs-text-sub">Upload image</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
+              </label>
+            )}
+            <p className="text-[10px] vs-text-sub mt-1.5">Model uses this as a starting frame.</p>
+          </div>
+
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -602,11 +630,13 @@ export default function CreatePage() {
               className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
               style={{ backgroundColor: 'var(--vs-card)' }} />
           </div>
+
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Film size={16} /> Generate</>)}
+            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating video...</>) : (<><Film size={16} /> Generate</>)}
           </button>
+
           {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
           {videoResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
@@ -623,7 +653,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ENHANCE POPUP */}
+      {/* ── ENHANCE POPUP ── */}
       {showEnhancePopup && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhancePopup(false) }}>
           <div className="vs-card rounded-2xl border vs-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
@@ -651,7 +681,7 @@ export default function CreatePage() {
                     <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
                   </div>
                   <div className="mb-4">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced ✨</p>
                     <div className="rounded-xl p-3 max-h-36 overflow-y-auto" style={{ background: 'var(--vs-bg)' }}>
                       <p className="text-[11px] vs-text leading-relaxed">
                         {enhancedPrompt || 'No result. Try re-enhancing.'}
@@ -680,7 +710,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* READ MORE */}
+      {/* ── READ MORE ── */}
       {readMoreText && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => setReadMoreText(null)}>
           <div className="vs-card rounded-2xl p-5 max-w-sm w-full border vs-border max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -696,7 +726,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* CONFIRM CLEAR RECENT */}
+      {/* ── CONFIRM CLEAR RECENT ── */}
       {confirmClearRecent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setConfirmClearRecent(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -711,7 +741,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* POLLEN POPUP */}
+      {/* ── POLLEN POPUP ── */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -724,7 +754,7 @@ export default function CreatePage() {
                   <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
                 </div>
                 <p className="text-xs vs-text-sub leading-relaxed mb-2">resets every hour whether you&apos;re ready or not 💀</p>
-                <p className="text-xs vs-text-sub leading-relaxed mb-4">it&apos;s giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑</p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">add your own key to skip the wait fr fr 🔑</p>
                 <button onClick={() => { setShowPollenPopup(false); setShowKeyPopup(true) }}
                   className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
                   Add API Key — Skip the Queue
@@ -739,8 +769,7 @@ export default function CreatePage() {
                   <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
                   <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
                 </div>
-                <p className="text-xs font-semibold vs-text-sub mb-1">key: {userKey.slice(0, 8)}...</p>
-                <p className="text-xs vs-text-sub leading-relaxed mb-4">you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤</p>
+                <p className="text-xs font-semibold vs-text-sub mb-1">🔑 key: {userKey.slice(0, 8)}...</p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
                   className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
                   Manage Key
@@ -752,7 +781,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* KEY POPUP */}
+      {/* ── KEY POPUP ── */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
@@ -796,7 +825,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ERROR POPUP */}
+      {/* ── ERROR POPUP ── */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
