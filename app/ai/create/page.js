@@ -50,7 +50,7 @@ const SIZES = [
   { label: '3:4',  w: 896,  h: 1152 },
 ]
 
-const VOICES = ['alloy','echo','nova','shimmer','onyx','fable','coral','sage','rachel','bella','charlotte','sarah','adam','josh','daniel','james']
+const VOICES = ['alloy','echo','nova','shimmer','onyx','fable','coral','sage','verse','ballad','ash']
 
 const RANDOM_PROMPTS = [
   'A cat wearing a tiny business suit in a board meeting',
