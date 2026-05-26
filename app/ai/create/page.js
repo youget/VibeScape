@@ -50,7 +50,9 @@ const SIZES = [
   { label: '3:4',  w: 896,  h: 1152 },
 ]
 
-const VOICES = ['alloy','echo','nova','shimmer','onyx','fable','coral','sage','verse','ballad','ash']
+const VOICES = ['Cherry','Ethan','Chelsie','Dylan','Madison','Ryan','Kaylee','Connor']
+
+// qwen-tts voices — Cherry is default (natural, warm)
 
 const RANDOM_PROMPTS = [
   'A cat wearing a tiny business suit in a board meeting',
@@ -85,7 +87,7 @@ function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catc
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
-const uiTabs = [
+const tabs = [
   { id: 'image', label: 'Image', icon: ImageIcon },
   { id: 'audio', label: 'Audio', icon: Mic },
   { id: 'video', label: 'Video', icon: Film },
@@ -135,13 +137,19 @@ export default function CreatePage() {
 
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
-  const [videoDuration, setVideoDuration] = useState(5)
-  const [videoModel] = useState('ltx-2') // Free/Alpha default
-  const [videoImageBase64, setVideoImageBase64] = useState(null)
-  const [videoImagePreview, setVideoImagePreview] = useState(null)
+  const [videoDuration, setVideoDuration] = useState(6)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
+  const [videoImageBase64, setVideoImageBase64] = useState(null)
+  const [videoImagePreview, setVideoImagePreview] = useState(null)
+
+  // STT state
+  const [sttFile, setSttFile] = useState(null)
+  const [sttFileName, setSttFileName] = useState('')
+  const [sttLoading, setSttLoading] = useState(false)
+  const [sttResult, setSttResult] = useState('')
+  const [sttError, setSttError] = useState(null)
 
   useEffect(() => {
     const k = getUserKey(); setUserKey(k)
@@ -191,8 +199,6 @@ export default function CreatePage() {
 
   const currentImgModel = IMAGE_MODELS.find(m => m.id === imgModel) || IMAGE_MODELS[0]
   const currentStyle = STYLES.find(s => s.id === imgStyle) || STYLES[0]
-  const minVideoDur = 5; const maxVideoDur = 30;
-  const curVideoDur = Math.min(Math.max(videoDuration, minVideoDur), maxVideoDur)
 
   function getModelTag(m) {
     if (m.tier === 'free') return ' · free'
@@ -205,7 +211,8 @@ export default function CreatePage() {
   }
 
   async function doEnhancePrompt(promptToEnhance) {
-    setEnhanceLoading(true); setEnhancedPrompt('')
+    setEnhanceLoading(true)
+    setEnhancedPrompt('')
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -213,7 +220,10 @@ export default function CreatePage() {
         body: JSON.stringify({
           action: 'chat',
           messages: [
-            { role: 'system', content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Keep it under 120 words. Return ONLY the enhanced prompt.' },
+            {
+              role: 'system',
+              content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt — no preamble, no explanation, nothing else.'
+            },
             { role: 'user', content: promptToEnhance }
           ],
           model: 'gemini-fast'
@@ -221,22 +231,28 @@ export default function CreatePage() {
       })
       const data = await res.json()
       setEnhancedPrompt(data.result?.trim() || '')
-    } catch { setEnhancedPrompt('') }
+    } catch {
+      setEnhancedPrompt('')
+    }
     setEnhanceLoading(false)
   }
 
   async function handleEnhanceClick() {
     if (!imgPrompt.trim()) return
-    setOriginalPromptForEnhance(imgPrompt.trim())
+    const original = imgPrompt.trim()
+    setOriginalPromptForEnhance(original)
     setShowEnhancePopup(true)
-    await doEnhancePrompt(imgPrompt.trim())
+    await doEnhancePrompt(original)
   }
 
-  async function handleReEnhance() { await doEnhancePrompt(originalPromptForEnhance) }
+  async function handleReEnhance() {
+    await doEnhancePrompt(originalPromptForEnhance)
+  }
 
   function handleUseEnhanced() {
     if (enhancedPrompt) setImgPrompt(enhancedPrompt)
-    setShowEnhancePopup(false); setEnhancedPrompt('')
+    setShowEnhancePopup(false)
+    setEnhancedPrompt('')
   }
 
   async function handleGenerate(overrideSeed) {
@@ -252,16 +268,19 @@ export default function CreatePage() {
     const seed = overrideSeed || Math.floor(Math.random() * 999999)
     const fullPrompt = imgPrompt.trim() + currentStyle.suffix
     const k = getUserKey()
+
     try {
       const res = await fetch('/api/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed, ...(k && { userKey: k }) }),
       })
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         handleApiError(err.error || 'api_error'); setImgLoading(false); return
       }
+
       const blob = await res.blob()
       const blobUrl = URL.createObjectURL(blob)
       const thumb = await compressImage(blobUrl, 100)
@@ -295,38 +314,57 @@ export default function CreatePage() {
   async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Copied!') } catch { toast('Failed to copy') } }
 
   async function handleVoiceGenerate() {
-    if (!voiceText.trim() || voiceLoading) return
+    if (voiceLoading || sttLoading) return
+    if (voiceMode !== 'stt' && !voiceText.trim()) return
+    if (voiceMode === 'stt' && !sttFile) return
     const k = getUserKey(); if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
     doVoice(k)
   }
   async function doVoice(k) {
+    if (voiceMode === 'stt') { doSTT(k); return }
     setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
     try {
-      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), model: voiceMode === 'music' ? 'acestep' : 'qwen-tts', voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined, userKey: k }) })
+      const body = {
+        action: 'audio',
+        prompt: voiceText.trim(),
+        userKey: k,
+        model: voiceMode === 'music' ? 'acestep' : 'qwen-tts',
+        voice: voiceMode === 'tts' ? voiceVoice : undefined,
+        duration: voiceMode === 'music' ? voiceDuration : undefined,
+      }
+      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
       setVoiceResult(data.audio)
-      toast('Audio ready!')
     } catch { setVoiceError('Failed. Try again?') }
     setVoiceLoading(false)
+  }
+
+  async function doSTT(k) {
+    if (!sttFile) return
+    setSttLoading(true); setSttError(null); setSttResult('')
+    try {
+      const reader = new FileReader()
+      reader.onload = async (ev) => {
+        const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'audio', model: 'universal-2', audioBase64: ev.target.result, userKey: k }) })
+        const data = await res.json()
+        if (data.error) { handleApiError(data.error); setSttLoading(false); return }
+        setSttResult(data.transcription || '')
+        setSttLoading(false)
+      }
+      reader.readAsDataURL(sttFile)
+    } catch { setSttError('Transcription failed. Try again?'); setSttLoading(false) }
   }
 
   function handleVideoImageUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
-      setVideoImageBase64(ev.target.result)
-      setVideoImagePreview(ev.target.result)
-    }
+    reader.onload = (ev) => { setVideoImageBase64(ev.target.result); setVideoImagePreview(ev.target.result) }
     reader.readAsDataURL(file)
   }
-
-  function clearVideoImage() {
-    setVideoImageBase64(null)
-    setVideoImagePreview(null)
-  }
+  function clearVideoImage() { setVideoImageBase64(null); setVideoImagePreview(null) }
 
   async function handleVideoGenerate() {
     if (!videoPrompt.trim() || videoLoading) return
@@ -336,12 +374,12 @@ export default function CreatePage() {
   async function doVideo(k) {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
-      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: 'ltx-2', duration: curVideoDur, imageBase64: videoImageBase64 || undefined, userKey: k }) })
+      const body = { action: 'video', prompt: videoPrompt.trim(), model: 'ltx-2', duration: Math.min(Math.max(videoDuration, 3), 30), userKey: k }
+      if (videoImageBase64) body.imageBase64 = videoImageBase64
+      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
-      toast('Video ready!')
     } catch { setVideoError('Failed. Try again?') }
     setVideoLoading(false)
   }
@@ -351,7 +389,7 @@ export default function CreatePage() {
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
       <p className="text-xs vs-text-sub text-center mb-4">create unhinged stuff with artificial brainpower</p>
 
-      {/* ── Balance bar ── */}
+      {/* Balance bar */}
       <div className="flex items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           {balance !== null
@@ -379,7 +417,7 @@ export default function CreatePage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
-        {uiTabs.map(t => {
+        {tabs.map(t => {
           const Icon = t.icon
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -392,7 +430,7 @@ export default function CreatePage() {
         })}
       </div>
 
-      {/* ── IMAGE ── */}
+      {/* IMAGE */}
       {tab === 'image' && (
         <div>
           <div className="mb-4">
@@ -440,7 +478,9 @@ export default function CreatePage() {
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
                 <Shuffle size={12} /> Random
               </button>
-              <button onClick={handleEnhanceClick} disabled={!imgPrompt.trim()}
+              <button
+                onClick={handleEnhanceClick}
+                disabled={!imgPrompt.trim()}
                 className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
                 style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}>
                 <Wand2 size={12} /> Enhance
@@ -494,7 +534,8 @@ export default function CreatePage() {
                 {imgResult.prompt.length > 80 && (
                   <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>
                 )}
-                <p className="text-[10px] vs-text-sub mb-3">Model: {imgResult.model} · Size: {imgResult.size} · Seed: {imgResult.seed}{imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : ''}</p>
+                {/* FIX 2: string concat instead of template literal to avoid Turbopack regex parse error */}
+                <p className="text-[10px] vs-text-sub mb-3">{'Model: ' + imgResult.model + ' · Size: ' + imgResult.size + ' · Seed: ' + imgResult.seed + (imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : '')}</p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
                   <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
@@ -531,77 +572,129 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── AUDIO ── */}
+      {/* AUDIO */}
       {tab === 'audio' && (
         <div>
-          <div className="vs-card border vs-border rounded-xl p-3 mb-5 text-center">
-            <p className="text-[10px] vs-text-sub">TTS: <strong className="vs-text">Qwen3-TTS Flash</strong> · Music: <strong className="vs-text">ACE-Step 1.5</strong> · API key required</p>
-          </div>
-          <div className="flex gap-2 mb-5">
-            {[['tts', 'TTS'], ['music', 'Music']].map(([mode, label]) => (
-              <button key={mode} onClick={() => setVoiceMode(mode)} className="flex-1 py-2.5 rounded-xl text-xs font-bold"
-                style={{ backgroundColor: voiceMode === mode ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceMode === mode ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceMode === mode ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+          {/* Mode tabs */}
+          <div className="flex gap-1 mb-5 vs-card border vs-border rounded-xl p-1">
+            {[['tts','TTS · qwen-tts'],['music','Music · acestep'],['stt','Transcribe · universal-2']].map(([mode, label]) => (
+              <button key={mode} onClick={() => setVoiceMode(mode)} className="flex-1 py-2 rounded-lg text-[10px] font-bold text-center transition-all"
+                style={{ backgroundColor: voiceMode === mode ? 'var(--vs-accent)' : 'transparent', color: voiceMode === mode ? '#fff' : 'var(--vs-text-sub)' }}>
                 {label}
               </button>
             ))}
           </div>
+
+          {/* TTS */}
           {voiceMode === 'tts' && (
-            <div className="mb-4">
-              <p className="text-xs font-semibold vs-text mb-2">Voice</p>
-              <div className="flex flex-wrap gap-1.5">
-                {VOICES.map(v => (
-                  <button key={v} onClick={() => setVoiceVoice(v)} className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                    style={{ backgroundColor: voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceVoice === v ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
-                    {v}
-                  </button>
-                ))}
+            <>
+              <div className="mb-4">
+                <p className="text-xs font-semibold vs-text mb-2">Voice</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {VOICES.map(v => (
+                    <button key={v} onClick={() => setVoiceVoice(v)} className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                      style={{ backgroundColor: voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-card)', color: voiceVoice === v ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${voiceVoice === v ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+              <div className="mb-4">
+                <p className="text-xs font-semibold vs-text mb-2">Text to speak</p>
+                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
+                  placeholder="Type what you want to hear..." rows={3}
+                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
+                  style={{ backgroundColor: 'var(--vs-card)' }} />
+              </div>
+            </>
           )}
+
+          {/* Music */}
           {voiceMode === 'music' && (
-            <div className="mb-4">
-              <p className="text-xs font-semibold vs-text mb-2">Duration: {voiceDuration}s</p>
-              <input type="range" min="10" max="120" value={voiceDuration} onChange={e => setVoiceDuration(parseInt(e.target.value))} className="w-full" />
-            </div>
+            <>
+              <div className="mb-4">
+                <p className="text-xs font-semibold vs-text mb-2">Duration: {voiceDuration}s</p>
+                <input type="range" min="10" max="120" value={voiceDuration} onChange={e => setVoiceDuration(parseInt(e.target.value))} className="w-full" />
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-semibold vs-text mb-2">Describe the music</p>
+                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
+                  placeholder="A chill lo-fi beat with rain sounds and soft piano..." rows={3}
+                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
+                  style={{ backgroundColor: 'var(--vs-card)' }} />
+              </div>
+            </>
           )}
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">{voiceMode === 'tts' ? 'Text to speak' : 'Describe the music'}</p>
-            <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
-              placeholder={voiceMode === 'tts' ? 'Type what you want to hear...' : 'A chill lo-fi beat with rain sounds...'}
-              rows={3} className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
-              style={{ backgroundColor: 'var(--vs-card)' }} />
-          </div>
-          <button onClick={handleVoiceGenerate} disabled={voiceLoading || !voiceText.trim()}
-            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
-            style={{ opacity: voiceLoading || !voiceText.trim() ? 0.5 : 1 }}>
-            {voiceLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Play size={16} /> Generate</>)}
+
+          {/* STT */}
+          {voiceMode === 'stt' && (
+            <>
+              <div className="mb-4">
+                <p className="text-xs font-semibold vs-text mb-2">Audio file</p>
+                <label className="flex items-center gap-2 px-3 py-3 rounded-xl vs-card border vs-border vs-hover cursor-pointer">
+                  <Mic size={14} className="vs-text-sub" />
+                  <span className="text-xs vs-text-sub flex-1">{sttFileName || 'Upload MP3, WAV, M4A...'}</span>
+                  <input type="file" accept="audio/*" className="hidden" onChange={e => {
+                    const f = e.target.files?.[0]
+                    if (f) { setSttFile(f); setSttFileName(f.name); setSttResult(''); setSttError(null) }
+                  }} />
+                </label>
+                <p className="text-[10px] vs-text-sub mt-1.5">Powered by AssemblyAI universal-2 model</p>
+              </div>
+              {sttError && <div className="vs-card border vs-border rounded-xl p-3 text-center mb-4"><p className="text-xs vs-text-sub">{sttError}</p></div>}
+              {sttResult && (
+                <div className="vs-card border vs-border rounded-xl p-4 mb-4">
+                  <p className="text-[10px] font-semibold vs-text-sub uppercase tracking-wider mb-2">Transcription</p>
+                  <p className="text-sm vs-text leading-relaxed">{sttResult}</p>
+                  <button onClick={() => { navigator.clipboard.writeText(sttResult); toast('Copied!') }}
+                    className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
+                    <Copy size={12} /> Copy text
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          <button onClick={handleVoiceGenerate}
+            disabled={voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)}
+            className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-4 gap-2 flex items-center justify-center"
+            style={{ opacity: (voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)) ? 0.5 : 1 }}>
+            {(voiceLoading || sttLoading) ? (<><Loader2 size={16} className="animate-spin" /> {voiceMode === 'stt' ? 'Transcribing...' : 'Generating...'}</>) : (<><Play size={16} /> {voiceMode === 'stt' ? 'Transcribe' : 'Generate'}</>)}
           </button>
+
           {voiceError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{voiceError}</p></div>}
-          {voiceResult && (
+
+          {voiceResult && voiceMode !== 'stt' && (
             <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
               <audio controls src={voiceResult} className="w-full" />
               <a href={voiceResult} download={`vibescape-${voiceMode}-${Date.now()}.mp3`}
                 className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
                 <Download size={14} /> Download
               </a>
-              <p className="text-[10px] vs-text-sub text-center mt-2">Audio is not saved — download before leaving.</p>
+              <p className="text-[10px] vs-text-sub text-center mt-2">Audio not saved — download before leaving.</p>
             </div>
           )}
+
+          <div className="vs-card border vs-border rounded-xl p-3 text-center">
+            <p className="text-[10px] vs-text-sub">All audio models are free tier · API key required</p>
+          </div>
         </div>
       )}
 
-      {/* ── VIDEO ── */}
+      {/* VIDEO */}
       {tab === 'video' && (
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
-            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">LTX-2.3</strong> · 5-30s · Free/Alpha · API key required</p>
-          </div>
-          
-          <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Duration: {curVideoDur}s <span className="vs-text-sub font-normal">(5-30s)</span></p>
-            <input type="range" min={minVideoDur} max={maxVideoDur} step="1" value={curVideoDur} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
+            <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">LTX-2.3 ALPHA</strong> · free tier · API key required</p>
           </div>
 
+          {/* Duration */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s (3-30s)</p>
+            <input type="range" min="3" max="30" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
+          </div>
+
+          {/* Reference image upload */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
             {videoImagePreview ? (
@@ -616,13 +709,14 @@ export default function CreatePage() {
             ) : (
               <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
                 <ImageIcon size={14} className="vs-text-sub" />
-                <span className="text-xs vs-text-sub">Upload image</span>
+                <span className="text-xs vs-text-sub">Upload reference image</span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
               </label>
             )}
-            <p className="text-[10px] vs-text-sub mt-1.5">Model uses this as a starting frame.</p>
+            <p className="text-[10px] vs-text-sub mt-1.5">Model animates from this image as the first frame.</p>
           </div>
 
+          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -634,10 +728,11 @@ export default function CreatePage() {
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating video...</>) : (<><Film size={16} /> Generate</>)}
+            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Film size={16} /> Generate</>)}
           </button>
 
           {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
+
           {videoResult && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
               <video controls src={videoResult} className="w-full" />
@@ -653,7 +748,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── ENHANCE POPUP ── */}
+      {/* ENHANCE POPUP */}
       {showEnhancePopup && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhancePopup(false) }}>
           <div className="vs-card rounded-2xl border vs-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
@@ -681,7 +776,7 @@ export default function CreatePage() {
                     <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
                   </div>
                   <div className="mb-4">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced ✨</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced</p>
                     <div className="rounded-xl p-3 max-h-36 overflow-y-auto" style={{ background: 'var(--vs-bg)' }}>
                       <p className="text-[11px] vs-text leading-relaxed">
                         {enhancedPrompt || 'No result. Try re-enhancing.'}
@@ -710,7 +805,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── READ MORE ── */}
+      {/* READ MORE */}
       {readMoreText && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => setReadMoreText(null)}>
           <div className="vs-card rounded-2xl p-5 max-w-sm w-full border vs-border max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -726,7 +821,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── CONFIRM CLEAR RECENT ── */}
+      {/* CONFIRM CLEAR RECENT */}
       {confirmClearRecent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setConfirmClearRecent(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -741,7 +836,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── POLLEN POPUP ── */}
+      {/* POLLEN POPUP */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
@@ -754,7 +849,7 @@ export default function CreatePage() {
                   <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
                 </div>
                 <p className="text-xs vs-text-sub leading-relaxed mb-2">resets every hour whether you&apos;re ready or not 💀</p>
-                <p className="text-xs vs-text-sub leading-relaxed mb-4">add your own key to skip the wait fr fr 🔑</p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">it&apos;s giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑</p>
                 <button onClick={() => { setShowPollenPopup(false); setShowKeyPopup(true) }}
                   className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
                   Add API Key — Skip the Queue
@@ -769,7 +864,8 @@ export default function CreatePage() {
                   <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
                   <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
                 </div>
-                <p className="text-xs font-semibold vs-text-sub mb-1">🔑 key: {userKey.slice(0, 8)}...</p>
+                <p className="text-xs font-semibold vs-text-sub mb-1">key: {userKey.slice(0, 8)}...</p>
+                <p className="text-xs vs-text-sub leading-relaxed mb-4">you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤</p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
                   className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
                   Manage Key
@@ -781,7 +877,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── KEY POPUP ── */}
+      {/* KEY POPUP */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
@@ -825,7 +921,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── ERROR POPUP ── */}
+      {/* ERROR POPUP */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
