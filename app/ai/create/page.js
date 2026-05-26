@@ -50,9 +50,15 @@ const SIZES = [
   { label: '3:4',  w: 896,  h: 1152 },
 ]
 
-const VOICES = ['Cherry','Ethan','Chelsie','Dylan','Madison','Ryan','Kaylee','Connor']
+// qwen-tts official voices
+const VOICES = ['alloy','echo','fable','onyx','nova','shimmer','ash','ballad','coral','sage','verse']
 
-// qwen-tts voices — Cherry is default (natural, warm)
+// LTX-2 video sizes — max 1MP total, multiples of 32
+const VIDEO_SIZES = [
+  { label: '1:1',  w: 768,  h: 768  },
+  { label: '16:9', w: 1024, h: 576  },
+  { label: '9:16', w: 576,  h: 1024 },
+]
 
 const RANDOM_PROMPTS = [
   'A cat wearing a tiny business suit in a board meeting',
@@ -138,6 +144,7 @@ export default function CreatePage() {
   // Video state
   const [videoPrompt, setVideoPrompt] = useState('')
   const [videoDuration, setVideoDuration] = useState(6)
+  const [videoSize, setVideoSize] = useState(0)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoResult, setVideoResult] = useState(null)
   const [videoError, setVideoError] = useState(null)
@@ -374,7 +381,8 @@ export default function CreatePage() {
   async function doVideo(k) {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
-      const body = { action: 'video', prompt: videoPrompt.trim(), model: 'ltx-2', duration: Math.min(Math.max(videoDuration, 3), 30), userKey: k }
+      const vsize = VIDEO_SIZES[videoSize] || VIDEO_SIZES[0]
+      const body = { action: 'video', prompt: videoPrompt.trim(), model: 'ltx-2', duration: Math.min(Math.max(videoDuration, 3), 30), width: vsize.w, height: vsize.h, userKey: k }
       if (videoImageBase64) body.imageBase64 = videoImageBase64
       const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
@@ -577,8 +585,8 @@ export default function CreatePage() {
         <div>
           {/* Mode tabs */}
           <div className="flex gap-1 mb-5 vs-card border vs-border rounded-xl p-1">
-            {[['tts','TTS · qwen-tts'],['music','Music · acestep'],['stt','Transcribe · universal-2']].map(([mode, label]) => (
-              <button key={mode} onClick={() => setVoiceMode(mode)} className="flex-1 py-2 rounded-lg text-[10px] font-bold text-center transition-all"
+            {[['tts','TTS'],['music','Music'],['stt','Transcribe']].map(([mode, label]) => (
+              <button key={mode} onClick={() => setVoiceMode(mode)} className="flex-1 py-2.5 rounded-lg text-xs font-bold text-center transition-all"
                 style={{ backgroundColor: voiceMode === mode ? 'var(--vs-accent)' : 'transparent', color: voiceMode === mode ? '#fff' : 'var(--vs-text-sub)' }}>
                 {label}
               </button>
@@ -659,24 +667,38 @@ export default function CreatePage() {
             disabled={voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-4 gap-2 flex items-center justify-center"
             style={{ opacity: (voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)) ? 0.5 : 1 }}>
-            {(voiceLoading || sttLoading) ? (<><Loader2 size={16} className="animate-spin" /> {voiceMode === 'stt' ? 'Transcribing...' : 'Generating...'}</>) : (<><Play size={16} /> {voiceMode === 'stt' ? 'Transcribe' : 'Generate'}</>)}
+            {(voiceLoading || sttLoading)
+              ? (<><Loader2 size={16} className="animate-spin" /> {voiceMode === 'stt' ? 'Transcribing...' : 'Generating...'}</>)
+              : (<><Play size={16} /> {voiceMode === 'stt' ? 'Transcribe' : 'Generate'}</>)}
           </button>
+
+          {/* Loading skeleton for TTS/Music */}
+          {voiceLoading && voiceMode !== 'stt' && (
+            <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
+              <div className="skeleton h-10 w-full rounded-xl mb-3" />
+              <div className="skeleton h-8 w-full rounded-xl" />
+              <p className="text-[10px] vs-text-sub text-center mt-3">Generating audio...</p>
+            </div>
+          )}
 
           {voiceError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{voiceError}</p></div>}
 
-          {voiceResult && voiceMode !== 'stt' && (
+          {voiceResult && voiceMode !== 'stt' && !voiceLoading && (
             <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
               <audio controls src={voiceResult} className="w-full" />
               <a href={voiceResult} download={`vibescape-${voiceMode}-${Date.now()}.mp3`}
-                className="vs-btn-outline w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
+                className="vs-btn w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
                 <Download size={14} /> Download
               </a>
-              <p className="text-[10px] vs-text-sub text-center mt-2">Audio not saved — download before leaving.</p>
+              <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg"
+                style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
+                not saved — download before you bounce 👋
+              </p>
             </div>
           )}
 
           <div className="vs-card border vs-border rounded-xl p-3 text-center">
-            <p className="text-[10px] vs-text-sub">All audio models are free tier · API key required</p>
+            <p className="text-[10px] vs-text-sub">Free tier · qwen-tts · acestep · universal-2 · API key required</p>
           </div>
         </div>
       )}
@@ -686,6 +708,19 @@ export default function CreatePage() {
         <div>
           <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
             <p className="text-[10px] vs-text-sub">Model: <strong className="vs-text">LTX-2.3 ALPHA</strong> · free tier · API key required</p>
+          </div>
+
+          {/* Size */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">Size</p>
+            <div className="flex gap-2">
+              {VIDEO_SIZES.map((s, i) => (
+                <button key={i} onClick={() => setVideoSize(i)} className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: videoSize === i ? 'var(--vs-accent)' : 'var(--vs-card)', color: videoSize === i ? '#fff' : 'var(--vs-text-sub)', border: '1px solid ' + (videoSize === i ? 'var(--vs-accent)' : 'var(--vs-border)') }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Duration */}
@@ -731,9 +766,21 @@ export default function CreatePage() {
             {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Film size={16} /> Generate</>)}
           </button>
 
+          {/* Loading skeleton */}
+          {videoLoading && (
+            <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
+              <div className="skeleton aspect-video w-full" />
+              <div className="p-3">
+                <div className="skeleton h-3 w-3/4 mb-2 mx-auto" />
+                <div className="skeleton h-3 w-1/2 mx-auto" />
+              </div>
+              <p className="text-[10px] vs-text-sub text-center pb-3">Generating video — this takes a moment...</p>
+            </div>
+          )}
+
           {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
 
-          {videoResult && (
+          {videoResult && !videoLoading && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
               <video controls src={videoResult} className="w-full" />
               <div className="p-3">
@@ -741,7 +788,10 @@ export default function CreatePage() {
                   className="vs-btn w-full py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
                   <Download size={14} /> Download
                 </a>
-                <p className="text-[10px] vs-text-sub text-center mt-2">Video not saved — download before leaving.</p>
+                <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg"
+                  style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
+                  not saved — download before you bounce 👋
+                </p>
               </div>
             </div>
           )}
