@@ -2,7 +2,7 @@ export const maxDuration = 120
 
 export async function POST(request) {
   const body = await request.json()
-  const { action, messages, prompt, model, userKey, voice, duration, imageUrl, imageBase64, audioBase64 } = body
+  const { action, messages, prompt, model, userKey, voice, duration, width, height, imageUrl, imageBase64, audioBase64 } = body
 
   const hasUserKey = !!userKey
   const key = userKey || process.env.POLLI_PK
@@ -124,6 +124,8 @@ export async function POST(request) {
         duration: String(videoDuration),
         key: userKey,
       })
+      if (width) params.set('width', String(width))
+      if (height) params.set('height', String(height))
       if (refImageUrl) params.set('image', refImageUrl)
 
       const videoUrl = `https://gen.pollinations.ai/video/${encoded}?${params.toString()}`
