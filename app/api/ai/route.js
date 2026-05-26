@@ -2,7 +2,7 @@ export const maxDuration = 120
 
 export async function POST(request) {
   const body = await request.json()
-  const { action, messages, prompt, model, userKey, voice, duration, imageUrl, imageBase64 } = body
+  const { action, messages, prompt, model, userKey, voice, duration, imageUrl, imageBase64, audioBase64 } = body
 
   const hasUserKey = !!userKey
   const key = userKey || process.env.POLLI_PK
@@ -38,67 +38,87 @@ export async function POST(request) {
       }
     }
 
-    // ── AUDIO (Qwen-TTS & ACE-Step) ──────────────────────────────
+    // ── AUDIO ───────────────────────────────────────────────────
     if (action === 'audio') {
       if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
-      if (!prompt) return Response.json({ error: 'missing_prompt' }, { status: 400 })
 
-      const encoded = encodeURIComponent(prompt.trim())
-      const params = new URLSearchParams({ key: userKey })
+      // STT — transcription via universal-2
+      if (model === 'universal-2') {
+        if (!audioBase64) return Response.json({ error: 'no_audio', message: 'No audio file provided' }, { status: 400 })
+        try {
+          const base64Data = audioBase64.replace(/^data:[^;]+;base64,/, '')
+          const binaryStr = atob(base64Data)
+          const bytes = new Uint8Array(binaryStr.length)
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i)
+          const formData = new FormData()
+          formData.append('file', new Blob([bytes], { type: 'audio/mpeg' }), 'audio.mp3')
+          formData.append('model', 'universal-2')
+          const res = await fetch('https://gen.pollinations.ai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${userKey}` },
+            body: formData,
+          })
+          if (!res.ok) return handleErr(res.status, await res.text())
+          const data = await res.json()
+          return Response.json({ transcription: data.text || '' })
+        } catch (e) {
+          return Response.json({ error: 'server_error', message: e.message }, { status: 500 })
+        }
+      }
 
-      const isMusic = model === 'acestep'
+      // TTS — qwen-tts
+      // Music — acestep
+      const encoded = encodeURIComponent((prompt || '').trim())
+      const params = new URLSearchParams()
+      params.set('key', userKey)
 
-      if (isMusic) {
-        // ACE-Step 1.5 Turbo (Music Generation)
+      if (model === 'acestep') {
         params.set('model', 'acestep')
-        if (voice) params.set('style', voice) // style = genre/mood
-        const d = Math.min(Math.max(Number(duration) || 15, 5), 120)
-        params.set('duration', String(d))
+        if (duration) params.set('duration', String(Math.min(Math.max(parseInt(duration), 10), 120)))
       } else {
-        // Qwen3-TTS Flash (Text-to-Speech)
+        // qwen-tts (free TTS)
         params.set('model', 'qwen-tts')
-        params.set('voice', voice || 'alloy')
+        params.set('voice', voice || 'Cherry')
       }
 
       const audioUrl = `https://gen.pollinations.ai/audio/${encoded}?${params.toString()}`
       return Response.json({ audio: audioUrl })
     }
 
-    // ── VIDEO (LTX-2.3 Default) ──────────────────────────────────
+    // ── VIDEO ───────────────────────────────────────────────────
     if (action === 'video') {
       if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
-      if (!prompt) return Response.json({ error: 'missing_prompt' }, { status: 400 })
 
+      // ltx-2: free, ALPHA, 3-30s
       const videoModel = model || 'ltx-2'
-      const isLtx = videoModel === 'ltx-2'
-      const minDur = isLtx ? 5 : 6
-      const maxDur = isLtx ? 30 : 120
+      const minDur = 3
+      const maxDur = 30
       const videoDuration = Math.min(Math.max(parseInt(duration) || minDur, minDur), maxDur)
 
       let refImageUrl = imageUrl || null
       if (imageBase64 && !refImageUrl) {
         try {
-          const base64Data = imageBase64.replace(/^data:[^;]+;base64,/, '')
-          const binaryData = Buffer.from(base64Data, 'base64')
+          const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '')
+          const binaryStr = atob(base64Data)
+          const bytes = new Uint8Array(binaryStr.length)
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i)
           const formData = new FormData()
-          formData.append('file', new Blob([binaryData], { type: 'image/jpeg' }), 'ref.jpg')
-
+          formData.append('file', new Blob([bytes], { type: 'image/jpeg' }), 'ref.jpg')
           const uploadRes = await fetch('https://media.pollinations.ai', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${key}` },
             body: formData,
           })
-
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json()
             refImageUrl = uploadData.url || (uploadData.id ? `https://media.pollinations.ai/${uploadData.id}` : null)
           }
         } catch (e) {
-          console.warn('Reference image upload failed:', e.message)
+          console.warn('Image upload failed:', e.message)
         }
       }
 
-      const encoded = encodeURIComponent(prompt.trim())
+      const encoded = encodeURIComponent((prompt || '').trim())
       const params = new URLSearchParams({
         model: videoModel,
         duration: String(videoDuration),
@@ -110,16 +130,7 @@ export async function POST(request) {
       return Response.json({ video: videoUrl })
     }
 
-    // ── STT / TRANSCRIPTION (Optional: Universal-2) ──────────────
-    if (action === 'transcribe') {
-      if (!hasUserKey) return Response.json({ error: 'user_key_required' }, { status: 401 })
-      // Note: STT usually requires file upload to Pollinations. 
-      // This is a placeholder for future audio-file upload handling.
-      return Response.json({ error: 'stt_not_implemented_yet' }, { status: 501 })
-    }
-
     return Response.json({ error: 'invalid_action' }, { status: 400 })
-
   } catch (error) {
     console.error('Server error:', error)
     return Response.json({ error: 'server_error', message: error.message }, { status: 500 })
