@@ -1,17 +1,19 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Trash2, Play, X, Share2, Download, Sparkles, ImageIcon,
-  ChevronLeft, ChevronRight, Copy, MessageSquare, Heart, ExternalLink, BookOpen, Layers, Inbox, LayoutGrid, MessageCircle } from 'lucide-react'
+import { Trash2, Play, X, Share2, Download, ImageIcon,
+  ChevronLeft, ChevronRight, Copy, MessageCircle, Heart, ExternalLink,
+  Stars, Hammer, Film } from 'lucide-react'
 import { toast } from '../components/Toast'
 import { getFavorites, clearFavorites, toggleFavorite } from '../lib/imagedb'
 import { getAllSessions, deleteSession, clearNonFavSessions, clearAllSessions, toggleSessionFav } from '../lib/chatdb'
 
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 
+// Icons match app/ai/page.js exactly
 const TAB_META = {
-  fortune: { label: 'Fortune Teller',    icon: 'Sparkles' },
-  story:   { label: 'Story Builder',     icon: 'BookOpen' },
-  builder: { label: 'Blueprint Builder', icon: 'Layers'   },
+  fortune: { label: 'Fortune Teller',    Icon: Stars         },
+  story:   { label: 'Story Builder',     Icon: MessageCircle },
+  builder: { label: 'Blueprint Builder', Icon: Hammer        },
 }
 
 function formatViews(num) { const n = parseInt(num); if (isNaN(n)) return '0'; if (n >= 1000000) return (n/1000000).toFixed(1)+'M'; if (n >= 1000) return (n/1000).toFixed(1)+'K'; return n.toString() }
@@ -125,9 +127,9 @@ export default function FavoritesPage() {
     : filteredSessions.length === 0
 
   const mainTabs = [
-    { id: 'videos', label: 'Videos', icon: Play },
-    { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'image', label: 'Image', icon: Sparkles },
+    { id: 'videos', label: 'Videos', icon: Film         },
+    { id: 'chat',   label: 'Chat',   icon: MessageCircle },
+    { id: 'image',  label: 'Image',  icon: ImageIcon     },
   ]
 
   // Storage warning
@@ -205,8 +207,8 @@ export default function FavoritesPage() {
                 return (
                   <div key={session.id} className="vs-card border vs-border rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 vs-bg2 flex-shrink-0">
-                        <Sparkles size={16} className="vs-text-sub" />
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--vs-bg2)' }}>
+                        <meta.Icon size={16} className="vs-text-sub" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
