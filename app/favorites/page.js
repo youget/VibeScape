@@ -202,12 +202,13 @@ export default function FavoritesPage() {
             <div className="flex flex-col gap-3">
               {filteredSessions.map(session => {
                 const meta = TAB_META[session.type] || TAB_META.fortune
+                const SessionIcon = meta.Icon
                 const msgCount = session.messages?.length || 0
                 return (
                   <div key={session.id} className="vs-card border vs-border rounded-xl p-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--vs-bg2)' }}>
-                        <meta.Icon size={16} className="vs-text-sub" />
+                        <SessionIcon size={16} className="vs-text-sub" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
