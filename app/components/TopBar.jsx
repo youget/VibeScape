@@ -24,7 +24,7 @@ const MENU_ITEMS = [
   {
     label: 'AI',
     children: [
-      { label: 'Fortune Teller',    href: '/ai/chat?tab=peramal'  },
+      { label: 'Fortune Teller',    href: '/ai/chat?tab=fortune'  },
       { label: 'Story Builder',     href: '/ai/chat?tab=story'    },
       { label: 'Blueprint Builder', href: '/ai/chat?tab=builder'  },
       { label: 'Image',             href: '/ai/create?tab=image'  },
