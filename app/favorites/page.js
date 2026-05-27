@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Trash2, Play, X, Share2, Download, Sparkles, ImageIcon,
-  ChevronLeft, ChevronRight, Copy, MessageSquare, Heart, ExternalLink, ArrowDownToLine } from 'lucide-react'
+  ChevronLeft, ChevronRight, Copy, MessageSquare, Heart, ExternalLink, BookOpen, Layers, Inbox, LayoutGrid, MessageCircle } from 'lucide-react'
 import { toast } from '../components/Toast'
 import { getFavorites, clearFavorites, toggleFavorite } from '../lib/imagedb'
 import { getAllSessions, deleteSession, clearNonFavSessions, clearAllSessions, toggleSessionFav } from '../lib/chatdb'
@@ -9,9 +9,9 @@ import { getAllSessions, deleteSession, clearNonFavSessions, clearAllSessions, t
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 
 const TAB_META = {
-  peramal: { label: 'Fortune Teller', emoji: '🔮', color: '#8B5CF6' },
-  story:   { label: 'Story Builder',  emoji: '📖', color: '#F59E0B' },
-  builder: { label: 'Blueprint Builder', emoji: '🏗️', color: '#3B82F6' },
+  fortune: { label: 'Fortune Teller',    icon: 'Sparkles' },
+  story:   { label: 'Story Builder',     icon: 'BookOpen' },
+  builder: { label: 'Blueprint Builder', icon: 'Layers'   },
 }
 
 function formatViews(num) { const n = parseInt(num); if (isNaN(n)) return '0'; if (n >= 1000000) return (n/1000000).toFixed(1)+'M'; if (n >= 1000) return (n/1000).toFixed(1)+'K'; return n.toString() }
@@ -23,7 +23,7 @@ export default function FavoritesPage() {
   const [favVideos, setFavVideos] = useState([])
   const [favImages, setFavImages] = useState([])
   const [chatSessions, setChatSessions] = useState([])
-  const [chatFilter, setChatFilter] = useState('all') // all | peramal | story | builder
+  const [chatFilter, setChatFilter] = useState('all') // all | fortune | story | builder
 
   const [activeVideo, setActiveVideo] = useState(null)
   const [viewIndex, setViewIndex] = useState(-1)
@@ -140,8 +140,8 @@ export default function FavoritesPage() {
       <p className="text-xs vs-text-sub text-center mb-5">all the good stuff you saved</p>
 
       {showStorageWarning && (
-        <div className="vs-card border rounded-xl p-3 mb-4 text-center" style={{ borderColor: '#EF4444' }}>
-          <p className="text-xs font-semibold mb-0.5" style={{ color: '#EF4444' }}>⚠️ Storage getting full</p>
+        <div className="vs-card border vs-border rounded-xl p-3 mb-4 text-center">
+          <p className="text-xs font-semibold mb-0.5 vs-text">Storage getting full</p>
           <p className="text-[10px] vs-text-sub">Limit: 150MB shared. Old non-favorited items auto-deleted. Clear manually to free space.</p>
         </div>
       )}
@@ -165,11 +165,11 @@ export default function FavoritesPage() {
         <div>
           {/* Chat type filter */}
           <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {['all', 'peramal', 'story', 'builder'].map(f => (
+            {['all', 'fortune', 'story', 'builder'].map(f => (
               <button key={f} onClick={() => setChatFilter(f)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                 style={{ backgroundColor: chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-card)', color: chatFilter === f ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${chatFilter === f ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
-                {f === 'all' ? 'All' : `${TAB_META[f].emoji} ${TAB_META[f].label}`}
+                {f === 'all' ? 'All' : TAB_META[f].label}
               </button>
             ))}
           </div>
@@ -190,7 +190,7 @@ export default function FavoritesPage() {
 
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">💬</p>
+              <MessageCircle size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No chat history yet</p>
               <p className="text-xs vs-text-sub mb-4">Start a conversation and it'll be saved here automatically.</p>
               <a href="/ai/chat" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Start Chatting</a>
@@ -200,19 +200,17 @@ export default function FavoritesPage() {
           {!isEmpty && (
             <div className="flex flex-col gap-3">
               {filteredSessions.map(session => {
-                const meta = TAB_META[session.type] || TAB_META.peramal
+                const meta = TAB_META[session.type] || TAB_META.fortune
                 const msgCount = session.messages?.length || 0
                 return (
                   <div key={session.id} className="vs-card border vs-border rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xl"
-                        style={{ backgroundColor: 'var(--vs-bg2)' }}>
-                        {meta.emoji}
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 vs-bg2 flex-shrink-0">
+                        <Sparkles size={16} className="vs-text-sub" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white"
-                            style={{ backgroundColor: meta.color }}>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded vs-card border vs-border vs-text-sub">
                             {meta.label}
                           </span>
                           {session.favorite && <Heart size={10} fill="var(--vs-accent)" style={{ color: 'var(--vs-accent)' }} />}
@@ -255,7 +253,7 @@ export default function FavoritesPage() {
           )}
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">📭</p>
+              <Inbox size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No saved videos</p>
               <p className="text-xs vs-text-sub mb-4">Hit that heart on videos to save them here!</p>
               <a href="/videos" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Browse Videos</a>
@@ -297,9 +295,9 @@ export default function FavoritesPage() {
           )}
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">🎨</p>
+              <LayoutGrid size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No favorites yet</p>
-              <p className="text-xs vs-text-sub mb-4">Use ❤️ in AI Create to save images here.</p>
+              <p className="text-xs vs-text-sub mb-4">Use the heart icon in AI Create to save images here.</p>
               <a href="/ai/create?tab=image" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Generate Images</a>
             </div>
           )}
@@ -409,7 +407,7 @@ export default function FavoritesPage() {
       {confirmClear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setConfirmClear(false); setDeleteTarget(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">😬</p>
+            <Trash2 size={32} className="vs-text-sub mx-auto mb-3" />
             <h3 className="text-lg font-bold vs-text mb-2">Are you sure?</h3>
             <p className="text-sm vs-text-sub mb-5">
               {tab === 'chat' && deleteTarget?.mode === 'non-fav'
@@ -424,10 +422,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      <style jsx>{`
-        .line-clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-        .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-      `}</style>
+      
     </div>
   )
 }
