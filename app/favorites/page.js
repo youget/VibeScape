@@ -9,7 +9,6 @@ import { getAllSessions, deleteSession, clearNonFavSessions, clearAllSessions, t
 
 const FAV_VIDEO_KEY = 'vs-fav-videos'
 
-// Icons match app/ai/page.js exactly
 const TAB_META = {
   fortune: { label: 'Fortune Teller',    Icon: Stars         },
   story:   { label: 'Story Builder',     Icon: MessageCircle },
