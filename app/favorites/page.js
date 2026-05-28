@@ -60,6 +60,16 @@ export default function FavoritesPage() {
   async function handleToggleFavSession(id) { await toggleSessionFav(id); await loadSessions() }
   function continueSession(session) { window.location.href = `/ai/chat?session=${session.id}&type=${session.type}` }
 
+  function downloadImage(item) {
+    const src = item.medium || item.thumbnail
+    if (!src) return
+    const a = document.createElement('a')
+    a.href = src
+    a.download = `vibescape-${item.model || 'image'}-${item.seed || Date.now()}.jpg`
+    a.click()
+    toast('Downloading!')
+  }
+
   async function execClear() {
     if (!deleteTarget) return
     if (tab === 'videos') { setFavVideos([]); localStorage.setItem(FAV_VIDEO_KEY, '[]') }
@@ -97,7 +107,7 @@ export default function FavoritesPage() {
 
       {totalItems > 200 && (
         <div className="vs-card border rounded-xl p-3 mb-4 text-center" style={{ borderColor: '#EF4444' }}>
-          <p className="text-xs font-semibold mb-0.5" style={{ color: '#EF4444' }}>⚠️ Storage getting full</p>
+          <p className="text-xs font-semibold mb-0.5" style={{ color: '#EF4444' }}>Storage getting full</p>
           <p className="text-[10px] vs-text-sub">Limit: 150MB shared. Clear manually to free space.</p>
         </div>
       )}
@@ -113,10 +123,9 @@ export default function FavoritesPage() {
         ))}
       </div>
 
-      {/* ── CHAT TAB ── */}
+      {/* CHAT TAB */}
       {tab === 'chat' && (
         <div>
-          {/* Filter pills with lucide icons */}
           <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {['all', 'fortune', 'story', 'builder'].map(f => {
               const meta = TAB_META[f]
@@ -126,7 +135,7 @@ export default function FavoritesPage() {
                 <button key={f} onClick={() => setChatFilter(f)}
                   className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                   style={{ backgroundColor: active ? 'var(--vs-accent)' : 'var(--vs-card)', color: active ? '#fff' : 'var(--vs-text-sub)', border: `1px solid ${active ? 'var(--vs-accent)' : 'var(--vs-border)'}` }}>
-                  {f === 'all' ? 'All' : <>{Icon && <Icon size={11} />}{meta.label}</>}
+                  {f === 'all' ? 'All' : <>{Icon && <Icon size={11} />} {meta.label}</>}
                 </button>
               )
             })}
@@ -143,7 +152,7 @@ export default function FavoritesPage() {
 
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">💬</p>
+              <MessageCircle size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No chat history yet</p>
               <p className="text-xs vs-text-sub mb-4">Start a conversation and it&apos;ll be saved here automatically.</p>
               <a href="/ai/chat" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Start Chatting</a>
@@ -154,27 +163,26 @@ export default function FavoritesPage() {
             <div className="flex flex-col gap-3">
               {filteredSessions.map(session => {
                 const meta = TAB_META[session.type] || TAB_META.fortune
-                const Icon = meta.Icon
+                const SessionIcon = meta.Icon
                 const msgCount = session.messages?.length || 0
                 return (
                   <div key={session.id} className="vs-card border vs-border rounded-xl p-4">
                     <div className="flex items-start gap-3">
-                      {/* Lucide icon badge — no colored emoji */}
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: 'var(--vs-bg2)' }}>
-                        <Icon size={18} style={{ color: 'var(--vs-text)' }} />
+                        <SessionIcon size={18} style={{ color: 'var(--vs-text)' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded vs-card border vs-border vs-text">{meta.label}</span>
                           {session.favorite && <Heart size={10} fill="var(--vs-accent)" style={{ color: 'var(--vs-accent)' }} />}
                         </div>
-                        <p className="text-sm font-semibold vs-text leading-snug line-clamp-1">{session.title || 'Untitled conversation'}</p>
+                        <p className="text-sm font-semibold vs-text leading-snug" style={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{session.title || 'Untitled conversation'}</p>
                         <p className="text-[10px] vs-text-sub mt-0.5">{msgCount} messages · {formatDate(session.timestamp)}</p>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3 border-t vs-border pt-3">
-                      <button onClick={() => continueSession(session)} className="flex-1 vs-btn py-2 rounded-xl text-xs font-semibold">Continue →</button>
+                      <button onClick={() => continueSession(session)} className="flex-1 vs-btn py-2 rounded-xl text-xs font-semibold">Continue</button>
                       <button onClick={() => handleToggleFavSession(session.id)}
                         className="vs-btn-outline py-2 px-3 rounded-xl text-xs"
                         style={{ borderColor: session.favorite ? 'var(--vs-accent)' : undefined, color: session.favorite ? 'var(--vs-accent)' : undefined }}>
@@ -190,16 +198,16 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* ── VIDEOS TAB ── */}
+      {/* VIDEOS TAB */}
       {tab === 'videos' && (
         <div>
           {!isEmpty && <button onClick={() => { setDeleteTarget({ type: 'all' }); setConfirmClear(true) }}
             className="flex items-center gap-1 text-xs vs-text-sub mb-4 hover:underline"><Trash2 size={12} /> Clear all</button>}
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">📭</p>
+              <Play size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No saved videos</p>
-              <p className="text-xs vs-text-sub mb-4">Hit that ♥ on videos to save them here!</p>
+              <p className="text-xs vs-text-sub mb-4">Hit that heart on videos to save them here.</p>
               <a href="/videos" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Browse Videos</a>
             </div>
           )}
@@ -213,7 +221,7 @@ export default function FavoritesPage() {
                       <span className="absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/80 text-white">{formatDuration(v.durationSec)}</span>
                     </div>
                     <div className="p-2.5">
-                      <p className="text-xs font-semibold vs-text leading-snug line-clamp-2">{v.title}</p>
+                      <p className="text-xs font-semibold vs-text leading-snug" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{v.title}</p>
                       <p className="text-[10px] vs-text-sub mt-1">{v.channel} · {formatViews(v.views)}</p>
                     </div>
                   </button>
@@ -228,16 +236,16 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* ── IMAGE TAB ── */}
+      {/* IMAGE TAB */}
       {tab === 'image' && (
         <div>
           {!isEmpty && <button onClick={() => { setDeleteTarget({ type: 'all' }); setConfirmClear(true) }}
             className="flex items-center gap-1 text-xs vs-text-sub mb-4 hover:underline"><Trash2 size={12} /> Clear all</button>}
           {isEmpty && (
             <div className="text-center py-20">
-              <p className="text-3xl mb-3">🎨</p>
+              <ImageIcon size={32} className="vs-text-sub mx-auto mb-3" />
               <p className="text-sm font-semibold vs-text mb-1">No favorites yet</p>
-              <p className="text-xs vs-text-sub mb-4">Use ♥ in AI Create to save images here.</p>
+              <p className="text-xs vs-text-sub mb-4">Use the heart in AI Create to save images here.</p>
               <a href="/ai/create?tab=image" className="vs-btn px-5 py-2 rounded-xl text-xs font-semibold inline-flex">Generate Images</a>
             </div>
           )}
@@ -252,7 +260,7 @@ export default function FavoritesPage() {
                         : <div className="w-full h-full vs-bg2 flex items-center justify-center"><ImageIcon size={24} className="vs-text-sub" /></div>}
                     </div>
                     <div className="p-2.5">
-                      <p className="text-xs vs-text-sub leading-snug line-clamp-2">{item.prompt}</p>
+                      <p className="text-xs vs-text-sub leading-snug" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.prompt}</p>
                       <p className="text-[10px] vs-text-sub mt-1">{item.model} · {item.size}</p>
                     </div>
                   </button>
@@ -268,7 +276,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* ── Image fullscreen viewer ── */}
+      {/* Image fullscreen viewer */}
       {currentView && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
@@ -281,22 +289,26 @@ export default function FavoritesPage() {
             {viewIndex < favImages.length - 1 && <button onClick={nextImage} className="absolute right-2 z-10 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"><ChevronRight size={20} className="text-white" /></button>}
           </div>
           <div className="p-4 max-h-[30vh] overflow-y-auto flex-shrink-0">
-            <p className="text-sm text-gray-300 leading-relaxed line-clamp-2">{currentView.prompt}</p>
+            <p className="text-sm text-gray-300 leading-relaxed" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{currentView.prompt}</p>
             {currentView.prompt.length > 80 && <button onClick={() => setReadMoreText(currentView.prompt)} className="text-[10px] underline mt-1" style={{ color: 'var(--vs-accent)' }}>Read more</button>}
-            <p className="text-[10px] text-gray-500 mt-2">{currentView.model} · {currentView.size}{currentView.seed ? ` · Seed: ${currentView.seed}` : ''}{currentView.style && currentView.style !== 'none' ? ` · ${currentView.style}` : ''}</p>
+            <p className="text-[10px] text-gray-500 mt-2">{currentView.model} · {currentView.size}{currentView.seed ? ' · Seed: ' + currentView.seed : ''}{currentView.style && currentView.style !== 'none' ? ' · ' + currentView.style : ''}</p>
             <div className="flex gap-2 mt-3">
+              <button onClick={() => downloadImage(currentView)}
+                className="vs-btn px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
+                <Download size={14} /> Download
+              </button>
               <a href={`/ai/create?tab=image&prompt=${encodeURIComponent(currentView.prompt)}`}
                 className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">Edit</a>
               <button onClick={() => { removeImage(currentView); closeViewer() }}
                 className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1 vs-text-sub">
-                <Trash2 size={14} /> Remove
+                <Trash2 size={14} />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Video player ── */}
+      {/* Video player */}
       {activeVideo && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex-1 flex items-center justify-center">
@@ -305,7 +317,7 @@ export default function FavoritesPage() {
               className="w-full aspect-video max-h-[70vh]" style={{ border: 'none' }} />
           </div>
           <div className="p-4 bg-black/95 flex-shrink-0">
-            <p className="text-sm font-bold text-white mb-1 line-clamp-2">{activeVideo.title}</p>
+            <p className="text-sm font-bold text-white mb-1" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{activeVideo.title}</p>
             <p className="text-xs text-gray-400 mb-4">{activeVideo.channel}</p>
             <div className="flex items-center justify-center gap-4">
               <button onClick={() => handleShareVideo(activeVideo)} className="flex flex-col items-center gap-1 px-4 py-2 text-gray-400">
@@ -322,7 +334,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* ── Read more ── */}
+      {/* Read more */}
       {readMoreText && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => setReadMoreText(null)}>
           <div className="vs-card rounded-2xl p-5 max-w-sm w-full border vs-border max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -338,16 +350,16 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* ── Confirm clear ── */}
+      {/* Confirm clear */}
       {confirmClear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setConfirmClear(false); setDeleteTarget(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">😬</p>
+            <Trash2 size={28} className="vs-text-sub mx-auto mb-3" />
             <h3 className="text-lg font-bold vs-text mb-2">Are you sure?</h3>
             <p className="text-sm vs-text-sub mb-5">
               {tab === 'chat' && deleteTarget?.mode === 'non-fav'
                 ? 'Non-favorited sessions will be deleted. Favorited ones stay safe.'
-                : `All your ${tab === 'videos' ? 'saved videos' : tab === 'image' ? 'favorited images' : 'chat sessions'} will be gone.`}
+                : 'All your ' + (tab === 'videos' ? 'saved videos' : tab === 'image' ? 'favorited images' : 'chat sessions') + ' will be gone.'}
             </p>
             <div className="flex gap-2">
               <button onClick={() => { setConfirmClear(false); setDeleteTarget(null) }} className="flex-1 vs-btn-outline px-4 py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
@@ -356,11 +368,6 @@ export default function FavoritesPage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .line-clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-        .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-      `}</style>
     </div>
   )
 }
