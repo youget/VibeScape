@@ -48,9 +48,7 @@ const channelSlots = [
   { id: 6 }, { id: 7 }, { id: 8 }, { id: 9 }, { id: 10 },
 ]
 
-function getToday() {
-  return new Date().toDateString()
-}
+function getToday() { return new Date().toDateString() }
 
 function getCacheKey(type, query) {
   return `${CACHE_KEY}-${type}-${query || 'trending'}-${getToday()}`
@@ -98,9 +96,7 @@ function toggleFav(video) {
   return updated
 }
 
-function isFav(id) {
-  return getFavs().some(f => f.id === id)
-}
+function isFav(id) { return getFavs().some(f => f.id === id) }
 
 function formatViews(num) {
   const n = parseInt(num)
@@ -130,6 +126,8 @@ async function getRegion() {
   } catch { return 'US' }
 }
 
+const lineClamp2 = { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+
 export default function VideosPage() {
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(false)
@@ -146,32 +144,25 @@ export default function VideosPage() {
   const nicheRef = useRef(null)
 
   useEffect(() => {
-  setFavs(getFavs());
-  (async () => {
-    const r = await getRegion();
-    setRegion(r);
-    loadVideos('trending', '', false, r);
-  })();
-}, []);
+    setFavs(getFavs());
+    (async () => {
+      const r = await getRegion();
+      setRegion(r);
+      loadVideos('trending', '', false, r);
+    })();
+  }, []);
 
   async function loadVideos(type, q, forceRefresh, reg) {
     const r = reg || region
-
     if (!forceRefresh) {
       const cached = getCache(type, q)
       if (cached) {
-        setVideos(cached)
-        setSearched(true)
-        setCurrentType(type)
-        setCurrentQuery(q)
+        setVideos(cached); setSearched(true); setCurrentType(type); setCurrentQuery(q)
         return
       }
-    } else {
-      clearCache(type, q)
-    }
+    } else { clearCache(type, q) }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
       let params
       if (type === 'search' && q) {
@@ -184,59 +175,35 @@ export default function VideosPage() {
       if (data.error) throw new Error(data.error)
       setVideos(data.videos || [])
       setCache(type, q, data.videos || [])
-      setSearched(true)
-      setCurrentType(type)
-      setCurrentQuery(q)
-    } catch (err) {
-      setError(err.message)
-      setVideos([])
-    }
+      setSearched(true); setCurrentType(type); setCurrentQuery(q)
+    } catch (err) { setError(err.message); setVideos([]) }
     setLoading(false)
   }
 
   function handleSearch(e) {
     e.preventDefault()
-    if (!query.trim()) {
-      loadVideos('trending', '')
-      setActiveNiche(0)
-      return
-    }
-    setActiveNiche(-1)
-    loadVideos('search', query.trim())
+    if (!query.trim()) { loadVideos('trending', ''); setActiveNiche(0); return }
+    setActiveNiche(-1); loadVideos('search', query.trim())
   }
 
   function handleNiche(index) {
     setActiveNiche(index)
     const niche = niches[index]
-    if (niche.q === '') {
-      setQuery('')
-      loadVideos('trending', '')
-    } else {
-      setQuery(niche.q)
-      loadVideos('search', niche.q)
-    }
+    if (niche.q === '') { setQuery(''); loadVideos('trending', '') }
+    else { setQuery(niche.q); loadVideos('search', niche.q) }
   }
 
   function handleRefresh() {
-    if (currentType === 'search' && currentQuery) {
-      loadVideos('search', currentQuery, true)
-    } else {
-      loadVideos('trending', '', true)
-    }
+    if (currentType === 'search' && currentQuery) loadVideos('search', currentQuery, true)
+    else loadVideos('trending', '', true)
   }
 
-  function handleFav(video) {
-    const updated = toggleFav(video)
-    setFavs(updated)
-  }
+  function handleFav(video) { setFavs(toggleFav(video)) }
 
   async function handleShare(video) {
     const url = `https://youtube.com/watch?v=${video.id}`
-    if (navigator.share) {
-      try { await navigator.share({ title: video.title, url }) } catch {}
-    } else {
-      try { await navigator.clipboard.writeText(url); alert('Link copied!') } catch {}
-    }
+    if (navigator.share) { try { await navigator.share({ title: video.title, url }) } catch {} }
+    else { try { await navigator.clipboard.writeText(url); alert('Link copied!') } catch {} }
   }
 
   function renderVideoCard(v, i) {
@@ -252,12 +219,12 @@ export default function VideosPage() {
             {formatDuration(v.durationSec)}
           </span>
           {isFav(v.id) && (
-            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/90 text-white">♥</span>
+            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/90 text-white">&#9829;</span>
           )}
         </div>
         <div className="p-2.5">
-          <p className="text-xs font-semibold vs-text leading-snug line-clamp-2">{v.title}</p>
-          <p className="text-[10px] vs-text-sub mt-1">{v.channel} • {formatViews(v.views)} views</p>
+          <p className="text-xs font-semibold vs-text leading-snug" style={lineClamp2}>{v.title}</p>
+          <p className="text-[10px] vs-text-sub mt-1">{v.channel} &bull; {formatViews(v.views)} views</p>
         </div>
       </button>
     )
@@ -265,8 +232,7 @@ export default function VideosPage() {
 
   function renderChannelCard(slotIndex) {
     return (
-      <div key={`channel-${slotIndex}`}
-        className="vs-card border vs-border rounded-xl overflow-hidden">
+      <div key={`channel-${slotIndex}`} className="vs-card border vs-border rounded-xl overflow-hidden">
         <div className="relative aspect-video vs-bg2 flex items-center justify-center">
           <div className="text-center">
             <p className="text-2xl mb-1">📺</p>
@@ -284,8 +250,7 @@ export default function VideosPage() {
   function renderAdCard(adIndex) {
     const ad = adSlots[adIndex] || adSlots[0]
     return (
-      <a key={`ad-${adIndex}`} href={ad.link}
-        className="vs-card border vs-border rounded-xl overflow-hidden block">
+      <a key={`ad-${adIndex}`} href={ad.link} className="vs-card border vs-border rounded-xl overflow-hidden block">
         <div className="relative aspect-video vs-bg2 flex items-center justify-center">
           <div className="text-center px-3">
             <p className="text-[9px] vs-text-sub uppercase tracking-wider mb-1">sponsored</p>
@@ -303,39 +268,23 @@ export default function VideosPage() {
 
   function renderVideoGrid() {
     if (videos.length === 0) return null
-
     const items = []
-    let channelCount = 0
-    let adCount = 0
-
+    let channelCount = 0, adCount = 0
     videos.forEach((v, i) => {
       const videoNum = i + 1
-
-      if (videoNum > 1 && videoNum % 5 === 1 && channelCount < 10) {
-        items.push(renderChannelCard(channelCount))
-        channelCount++
-      }
-
-      if (videoNum > 1 && videoNum % 10 === 1 && adCount < 5) {
-        items.push(renderAdCard(adCount))
-        adCount++
-      }
-
+      if (videoNum > 1 && videoNum % 5 === 1 && channelCount < 10) { items.push(renderChannelCard(channelCount)); channelCount++ }
+      if (videoNum > 1 && videoNum % 10 === 1 && adCount < 5) { items.push(renderAdCard(adCount)); adCount++ }
       items.push(renderVideoCard(v, i))
     })
-
     return items
   }
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
-
       <h1 className="text-2xl font-black vs-text text-center mb-1">
         The <span className="vs-gradient-text">Rabbit Hole</span>
       </h1>
-      <p className="text-xs vs-text-sub text-center mb-5">
-        short videos that will ruin your productivity
-      </p>
+      <p className="text-xs vs-text-sub text-center mb-5">short videos that will ruin your productivity</p>
 
       {/* Platform buttons */}
       <div className="flex gap-2 mb-4">
@@ -347,9 +296,7 @@ export default function VideosPage() {
       {/* Search */}
       <form onSubmit={handleSearch} className="relative mb-2">
         <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          type="text" value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Search videos..."
           className="w-full py-3 px-4 pr-20 rounded-xl vs-card border vs-border text-sm vs-text outline-none focus:border-[var(--vs-accent)] transition-colors"
           style={{ backgroundColor: 'var(--vs-card)' }}
@@ -359,20 +306,13 @@ export default function VideosPage() {
             className="w-8 h-8 flex items-center justify-center rounded-lg vs-hover transition-colors vs-text-sub" title="Refresh">
             <RefreshCw size={14} />
           </button>
-          <button type="submit"
-            className="w-8 h-8 flex items-center justify-center rounded-lg vs-hover transition-colors"
-            style={{ color: 'var(--vs-accent)' }}>
+          <button type="submit" className="w-8 h-8 flex items-center justify-center rounded-lg vs-hover transition-colors" style={{ color: 'var(--vs-accent)' }}>
             <Search size={18} />
           </button>
         </div>
       </form>
 
-      {/* Region */}
-      {activeNiche === 0 && (
-  <p className="text-[10px] vs-text-sub text-center mb-3">
-    what's popping here
-  </p>
-)}
+      {activeNiche === 0 && <p className="text-[10px] vs-text-sub text-center mb-3">what&apos;s popping here</p>}
 
       {/* Niches */}
       <div ref={nicheRef}
@@ -391,7 +331,6 @@ export default function VideosPage() {
         ))}
       </div>
 
-      {/* Loading */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 size={32} className="vs-accent animate-spin mb-3" />
@@ -399,7 +338,6 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="vs-card border vs-border rounded-2xl p-5 text-center my-6">
           <p className="text-2xl mb-2">💀</p>
@@ -408,7 +346,6 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* Empty */}
       {!loading && !error && searched && videos.length === 0 && (
         <div className="text-center py-20">
           <p className="text-2xl mb-2">🦗</p>
@@ -416,19 +353,12 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* Video Grid */}
       {!loading && videos.length > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            {renderVideoGrid()}
-          </div>
-
-          {/* Bottom message */}
+          <div className="grid grid-cols-2 gap-3">{renderVideoGrid()}</div>
           <div className="vs-card border vs-border rounded-2xl p-5 text-center mt-6">
             <p className="text-xl mb-2">🕳️</p>
-            <p className="text-sm font-bold vs-text mb-1">
-              You&apos;ve hit the bottom of the rabbit hole
-            </p>
+            <p className="text-sm font-bold vs-text mb-1">You&apos;ve hit the bottom of the rabbit hole</p>
             <p className="text-xs vs-text-sub mb-4 leading-relaxed">
               That&apos;s a LOT of videos. Your screen time report is gonna be absolutely unhinged.
               Maybe go outside? Touch some grass? Or don&apos;t. We&apos;re not your parents.
@@ -447,26 +377,22 @@ export default function VideosPage() {
           <div className="flex-1 flex items-center justify-center bg-black">
             <iframe
               src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=1&rel=0`}
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-              className="w-full aspect-video max-h-[70vh]"
-              style={{ border: 'none' }}
+              allow="autoplay; encrypted-media; fullscreen" allowFullScreen
+              className="w-full aspect-video max-h-[70vh]" style={{ border: 'none' }}
             />
           </div>
           <div className="p-4 bg-black/95">
-            <p className="text-sm font-bold text-white mb-1 line-clamp-2">{activeVideo.title}</p>
-            <p className="text-xs text-gray-400 mb-4">{activeVideo.channel} • {formatViews(activeVideo.views)} views</p>
+            <p className="text-sm font-bold text-white mb-1" style={lineClamp2}>{activeVideo.title}</p>
+            <p className="text-xs text-gray-400 mb-4">{activeVideo.channel} &bull; {formatViews(activeVideo.views)} views</p>
             <div className="flex items-center justify-center gap-4">
               <button onClick={() => handleShare(activeVideo)}
                 className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors" style={{ color: 'var(--vs-accent)' }}>
                 <Share2 size={22} /><span className="text-[10px] font-semibold text-gray-400">Share</span>
               </button>
-              <button onClick={() => setActiveVideo(null)}
-                className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-white/10">
+              <button onClick={() => setActiveVideo(null)} className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-white/10">
                 <X size={22} className="text-white" /><span className="text-[10px] font-semibold text-gray-400">Close</span>
               </button>
-              <button onClick={() => handleFav(activeVideo)}
-                className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors">
+              <button onClick={() => handleFav(activeVideo)} className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors">
                 <Heart size={22} fill={isFav(activeVideo.id) ? 'var(--vs-accent)' : 'none'} style={{ color: 'var(--vs-accent)' }} />
                 <span className="text-[10px] font-semibold text-gray-400">{isFav(activeVideo.id) ? 'Saved' : 'Save'}</span>
               </button>
@@ -486,18 +412,6 @@ export default function VideosPage() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        div::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </div>
   )
 }
