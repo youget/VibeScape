@@ -40,7 +40,7 @@ All image generation routes through a server-side `/api/image` proxy — server 
 
 ### Audio & Video
 
-TTS via `elevenlabs`, music via `elevenmusic`, video via `grok-video`. These require users to bring their own Pollinations key — we don't subsidize those (they're expensive lol).
+TTS via `qwen-tts`, music via `acestep`, video via `ltx-2`. These require users to bring their own Pollinations key — we don't subsidize those (they're expensive lol).
 
 ### BYOP (Bring Your Own Pollen)
 
@@ -76,8 +76,8 @@ YOUTUBE_API_KEY_2=...
 ## Run Locally
 
 ```bash
-git clone https://github.com/youget/VibeScape.git
-cd VibeScape
+git clone https://github.com/youget/viralscape.git
+cd viralscape
 npm install
 cp .env.example .env.local   # add your keys
 npm run dev
@@ -108,8 +108,8 @@ VibeScape currently uses the following Pollinations models in production:
 
 **Text:** `nova-fast`, `mistral`, `gemini-fast`  
 **Image:** `flux`, `zimage`, `klein`, `gptimage`, `qwen-image`, `wan-image`, `kontext`, `gptimage-large`  
-**Audio:** `elevenlabs`, `elevenmusic`  
-**Video:** `grok-video`
+**Audio:** `qwen-tts`, `acestep`  
+**Video:** `ltx-2`
 
 ---
 
