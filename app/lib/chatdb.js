@@ -4,7 +4,7 @@ const DB_VERSION = 1
 const MAX_NON_FAV = 100
 
 // Session schema:
-// { id, type: 'peramal'|'story'|'builder', title, messages: [{role,content}], model, favorite, timestamp }
+// { id, type: 'fortune'|'story'|'builder', title, messages: [{role,content}], model, favorite, timestamp }
 
 function openDB() {
   return new Promise((resolve, reject) => {
