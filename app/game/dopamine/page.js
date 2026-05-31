@@ -464,14 +464,6 @@ export default function GamePage() {
           </div>
         </div>
       )}
-
-      {/* ✅ Floating number animation */}
-      <style jsx global>{`
-        @keyframes floatUp {
-          0% { opacity: 1; transform: translateY(0) scale(1); }
-          100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
-        }
-      `}</style>
     </div>
   )
 }
