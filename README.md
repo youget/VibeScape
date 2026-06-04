@@ -77,7 +77,7 @@ YOUTUBE_API_KEY_2=...
 
 ```bash
 git clone https://github.com/youget/VibeScape.git
-cd viralscape
+cd VibeScape
 npm install
 cp .env.example .env.local   # add your keys
 npm run dev
