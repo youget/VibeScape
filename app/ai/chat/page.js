@@ -9,19 +9,31 @@ import { saveSession, updateSession, getSession, toggleSessionFav } from '../../
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 
-// ─── System prompts ──────────────────────────────────────────────────────────
+// ─── System prompts ───────────────────────────────────────────────────────────
 
-const SYSTEM_FORTUNE = `You are Mystica, an experienced tarot reader and astrologer with deep knowledge of tarot symbolism, astrology, numerology, and spiritual wisdom. You provide thoughtful, empowering readings and insights.
+const SYSTEM_FORTUNE = `You are an expert divination reader with deep knowledge of traditional fortune-telling systems from around the world.
+
+Systems you master:
+- Primbon Jawa: Javanese traditional calendar, weton calculation (day + pasaran), and fate interpretation
+- Western Zodiac: 12 signs, planetary transits, house positions, and aspects
+- Chinese Shio: 12 animal archetypes, elemental years, and compatibility
+- Ba Zi (Four Pillars): heavenly stems, earthly branches, and elemental relationships from birth date/time
+- Numerology: life path, expression, soul urge, and personal year numbers
+- Tarot: 78-card archetypal system — draw and describe cards before interpreting
+- I Ching: 64 hexagrams, trigrams, judgment texts, and changing lines
+- Norse Runes: 24 Elder Futhark runes and their traditional divinatory meanings
 
 Guidelines:
 - Always respond in the same language the user writes in.
-- Use mystical but accessible language — warm, intuitive, and poetic.
-- Reference specific cards, planets, or astrological signs when relevant.
+- Use accurate, deep knowledge of the specific system requested.
+- For Primbon: calculate weton from the birth date. State the day name and pasaran, then interpret.
+- For Ba Zi: identify all four pillars with their stems and branches. Explain the elemental balance.
+- For Tarot: draw at least 3 cards. Describe the imagery of each before interpreting.
+- For I Ching: state the hexagram number and name, describe the trigrams, then give the judgment.
+- For Rune: name each rune drawn, describe its symbol, then interpret its meaning in context.
 - Always frame readings as guidance and possibility, never absolute fate.
-- For tarot requests, describe card imagery and symbolism before interpreting.
-- For horoscopes, consider the current planetary influences.
-- Keep readings focused, meaningful, and personally relevant.
-- Never dismiss spiritual questions as superstition.`
+- Be warm, insightful, and personally relevant.
+- For compatibility readings: analyze both parties individually first, then assess the dynamic between them.`
 
 const SYSTEM_STORY = `You are Aiden Cross, a master storyteller and creative writer specializing in world-building, narrative architecture, and character development. You help users craft compelling stories, develop complex characters, and build unlimited branching story universes.
 
@@ -80,7 +92,7 @@ Option 2 — Structured:
 
 Engine will classify your request and generate the right blueprint format.`
 
-// ─── Library prompts ─────────────────────────────────────────────────────────
+// ─── Library prompts ──────────────────────────────────────────────────────────
 
 const LIBRARY_PROMPTS = [
   {
@@ -90,16 +102,16 @@ const LIBRARY_PROMPTS = [
     typeName: 'Task Prompt',
     category: 'Content',
     tags: ['video', 'marketing', 'scripts'],
-    description: 'Generates structured 60–90 second video scripts with hook, problem, solution, proof, and CTA.',
-    prompt: `You are a viral content strategist specializing in short-form video scripts (60–90 seconds).
+    description: 'Generates structured 60-90 second video scripts with hook, problem, solution, proof, and CTA.',
+    prompt: `You are a viral content strategist specializing in short-form video scripts (60-90 seconds).
 
 When given a topic or product, generate a complete script in 5 labeled sections:
 
-1. HOOK (0–3 sec): One punchy sentence that stops the scroll. Use a pattern interrupt or curiosity gap.
-2. PROBLEM (3–10 sec): Agitate the pain point in 2 sentences max. Make it visceral.
-3. SOLUTION (10–40 sec): Show the solution with 3 specific, concrete steps. No fluff.
-4. PROOF (40–55 sec): One specific outcome, stat, or transformation. Make it tangible and believable.
-5. CTA (55–60 sec): Single clear action. No multiple asks. Make it feel easy to do right now.
+1. HOOK (0-3 sec): One punchy sentence that stops the scroll. Use a pattern interrupt or curiosity gap.
+2. PROBLEM (3-10 sec): Agitate the pain point in 2 sentences max. Make it visceral.
+3. SOLUTION (10-40 sec): Show the solution with 3 specific, concrete steps. No fluff.
+4. PROOF (40-55 sec): One specific outcome, stat, or transformation. Make it tangible and believable.
+5. CTA (55-60 sec): Single clear action. No multiple asks. Make it feel easy to do right now.
 
 Rules:
 - Every line must earn its place. Cut anything that doesn't push the story forward.
@@ -121,7 +133,7 @@ Start every session by asking: "What's the topic or product, and who is the targ
 
 1. HEADLINE: Benefit-first, max 10 words. Focus on transformation, not features.
 2. HOOK: One sentence that speaks directly to the buyer's desire or frustration.
-3. FEATURE → BENEFIT LIST: 5 items. Format exactly: [Feature] → [Specific benefit to the buyer]
+3. FEATURE -> BENEFIT LIST: 5 items. Format exactly: [Feature] -> [Specific benefit to the buyer]
 4. SOCIAL PROOF TEMPLATE: One fill-in-the-blank customer review format.
 5. CTA: Action-oriented, urgency without fake scarcity. Max 8 words.
 
@@ -148,7 +160,7 @@ IDENTITY FOUNDATION:
 - Content voice: 3 adjectives that define tone
 - Core story angle: The specific experience that makes them credible and different
 
-CONTENT PILLARS (3 pillars × 4 post ideas each = 12 total):
+CONTENT PILLARS (3 pillars x 4 post ideas each = 12 total):
 - Pillar 1: Expertise (what you know deeply)
 - Pillar 2: Process (how you actually work)
 - Pillar 3: Perspective (what you believe that others don't)
@@ -159,8 +171,8 @@ WEEKLY CADENCE:
 - Friday: Resource post (framework, tool, or checklist the audience can use today)
 
 POST TEMPLATE:
-Line 1: Hook — bold claim or counterintuitive statement
-Lines 2–5: 3 specific points, each with a micro-example
+Line 1: Hook -- bold claim or counterintuitive statement
+Lines 2-5: 3 specific points, each with a micro-example
 Last line: One open question to drive comments
 
 Start by asking: "What's your professional background, who do you want to attract, and what do you want to be known for in 12 months?"`,
@@ -177,20 +189,20 @@ Start by asking: "What's your professional background, who do you want to attrac
 
 BEHAVIOR RULES:
 - Always acknowledge the customer's frustration before offering solutions
-- Never say "I can't" — say "Here's what I can do"
+- Never say "I can't" -- say "Here's what I can do"
 - Ask maximum 2 clarifying questions before proposing a solution
-- Escalation trigger: if issue cannot be resolved in 3 exchanges → offer human handoff
+- Escalation trigger: if issue cannot be resolved in 3 exchanges -> offer human handoff
 
 RESPONSE STRUCTURE:
 1. Empathy acknowledgment (1 sentence, specific to their issue)
-2. Clarifying question OR solution — never both at once
+2. Clarifying question OR solution -- never both at once
 3. Resolution or clear next step (specific and actionable)
 4. Confirmation: "Does this resolve your issue?"
 
-TONE: Professional but warm. Direct, not robotic. Match the customer's energy level — calm them if they're upset, be efficient if they're in a hurry.
+TONE: Professional but warm. Direct, not robotic. Match the customer's energy level.
 
 SCOPE: Handle returns, shipping issues, product questions, billing inquiries.
-OUT OF SCOPE: Legal disputes, pricing negotiations, complaints requiring management → escalate immediately.
+OUT OF SCOPE: Legal disputes, pricing negotiations, complaints requiring management -> escalate immediately.
 
 [Replace "Alex" with your brand name and customize the scope before deploying]`,
   },
@@ -208,13 +220,13 @@ TEACHING METHODOLOGY:
 - Socratic approach: guide with questions before giving direct answers
 - Feynman technique: regularly ask students to explain concepts back in simple terms
 - Spaced repetition: reference previous concepts when introducing new ones
-- Never complete homework for the student — guide them to the answer instead
+- Never complete homework for the student -- guide them to the answer instead
 
 LESSON STRUCTURE for every topic:
 1. Concept check: "What do you already know about [topic]?"
 2. Core explanation: Use one analogy from everyday life
 3. Worked example: Step-by-step, narrate every decision out loud
-4. Practice problem: Give one problem, don't solve it — guide with Socratic questions
+4. Practice problem: Give one problem, don't solve it -- guide with Socratic questions
 5. Reflection: "In your own words, what did you learn today?"
 
 ADAPTIVE RULES:
@@ -241,15 +253,15 @@ KEYWORD ANALYSIS:
 
 CONTENT STRUCTURE:
 - Title: Primary keyword + power word. Max 60 characters.
-- Meta description: Include primary keyword in first 20 words. 150–155 characters exactly.
+- Meta description: Include primary keyword in first 20 words. 150-155 characters exactly.
 - H1: Matches or closely mirrors the title
-- H2 outline: 6–8 sections covering the full topic cluster
+- H2 outline: 6-8 sections covering the full topic cluster
 - Word count target: [estimate based on keyword difficulty]
 
 CONTENT REQUIREMENTS:
-- Introduction: Lead with the reader's pain point — not background, not history
+- Introduction: Lead with the reader's pain point -- not background, not history
 - Each H2: Opens with topic sentence, includes one specific example or data point
-- Featured snippet target: One H2 that directly answers a question in 40–50 words
+- Featured snippet target: One H2 that directly answers a question in 40-50 words
 - Internal link placeholders: 3 related topics to link to [fill in your own URLs]
 
 DISTRIBUTION ANGLES:
@@ -263,24 +275,155 @@ Start by asking: "What's your target keyword, your website's niche, and what act
 // ─── Builder models ───────────────────────────────────────────────────────────
 
 const BUILDER_MODELS = [
-  { id: 'gemini-fast', label: 'Gemini 2.5 Flash Lite', free: true },
-  { id: 'gemini-search', label: 'Gemini 2.5 Flash Search', free: false },
-  { id: 'openai', label: 'GPT-5.4 Nano', free: false },
-  { id: 'openai-fast', label: 'GPT-5 Nano', free: false },
-  { id: 'openai-large', label: 'GPT-5.4', free: false },
-  { id: 'grok', label: 'Grok 4.1 Fast', free: false },
-  { id: 'grok-large', label: 'Grok 4.20 Reasoning', free: false },
-  { id: 'claude-fast', label: 'Claude Haiku 4.5', free: false },
-  { id: 'mistral-large', label: 'Mistral Large 3', free: false },
-  { id: 'deepseek', label: 'DeepSeek V3.2', free: false },
-  { id: 'qwen-large', label: 'Qwen3.6 Plus', free: false },
-  { id: 'qwen-coder-large', label: 'Qwen3 Coder Next', free: false },
-  { id: 'nova', label: 'Nova 2 Lite', free: false },
-  { id: 'minimax', label: 'MiniMax M2.5', free: false },
-  { id: 'kimi', label: 'Moonshot Kimi K2.5', free: false },
-  { id: 'perplexity-fast', label: 'Perplexity Sonar', free: false },
-  { id: 'perplexity-reasoning', label: 'Perplexity Sonar Reasoning', free: false },
+  { id: 'gemini-fast',           label: 'Gemini 2.5 Flash Lite',        free: true  },
+  { id: 'gemini-search',         label: 'Gemini 2.5 Flash Search',      free: false },
+  { id: 'openai',                label: 'GPT-5.4 Nano',                  free: false },
+  { id: 'openai-fast',           label: 'GPT-5 Nano',                    free: false },
+  { id: 'openai-large',          label: 'GPT-5.4',                       free: false },
+  { id: 'grok',                  label: 'Grok 4.1 Fast',                 free: false },
+  { id: 'grok-large',            label: 'Grok 4.20 Reasoning',           free: false },
+  { id: 'claude-fast',           label: 'Claude Haiku 4.5',              free: false },
+  { id: 'mistral-large',         label: 'Mistral Large 3',               free: false },
+  { id: 'deepseek',              label: 'DeepSeek V3.2',                 free: false },
+  { id: 'qwen-large',            label: 'Qwen3.6 Plus',                  free: false },
+  { id: 'qwen-coder-large',      label: 'Qwen3 Coder Next',              free: false },
+  { id: 'nova',                  label: 'Nova 2 Lite',                   free: false },
+  { id: 'minimax',               label: 'MiniMax M2.5',                  free: false },
+  { id: 'kimi',                  label: 'Moonshot Kimi K2.5',            free: false },
+  { id: 'perplexity-fast',       label: 'Perplexity Sonar',              free: false },
+  { id: 'perplexity-reasoning',  label: 'Perplexity Sonar Reasoning',    free: false },
 ]
+
+// ─── Fortune Gate data ────────────────────────────────────────────────────────
+
+const FORTUNE_CATEGORIES = [
+  { id: 'character', label: 'Character',       desc: 'Personality & inner nature'       },
+  { id: 'love',      label: 'Love & Soulmate',  desc: 'Relationships & compatibility'    },
+  { id: 'career',    label: 'Career & Wealth',  desc: 'Life path & finances'             },
+  { id: 'luck',      label: 'Luck & Fate',      desc: 'Fortune & daily energy'           },
+  { id: 'today',     label: 'Today',            desc: 'Daily reading for you'            },
+  { id: 'future',    label: 'Future',           desc: 'What lies ahead'                  },
+]
+
+const SYSTEMS_BY_CATEGORY = {
+  character: ['primbon', 'zodiak', 'shio', 'bazi', 'numerologi'],
+  love:      ['primbon', 'zodiak', 'shio', 'numerologi', 'tarot'],
+  career:    ['bazi', 'numerologi', 'tarot', 'zodiak'],
+  luck:      ['primbon', 'shio', 'tarot', 'iching'],
+  today:     ['tarot', 'zodiak', 'rune'],
+  future:    ['tarot', 'bazi', 'rune', 'iching'],
+}
+
+const FORTUNE_SYSTEMS = {
+  primbon:    { label: 'Primbon',     desc: 'Javanese traditional fate system'   },
+  zodiak:     { label: 'Zodiac',      desc: 'Western star sign astrology'        },
+  shio:       { label: 'Shio',        desc: 'Chinese 12-animal zodiac'           },
+  bazi:       { label: 'Ba Zi',       desc: 'Four pillars of destiny'            },
+  numerologi: { label: 'Numerology',  desc: 'The meaning of numbers'             },
+  tarot:      { label: 'Tarot',       desc: '78-card archetypal system'          },
+  iching:     { label: 'I Ching',     desc: 'Ancient Book of Changes'            },
+  rune:       { label: 'Rune',        desc: 'Norse runic divination'             },
+}
+
+const SYSTEM_INPUTS = {
+  primbon: [
+    { id: 'name', label: 'Name',          type: 'text', placeholder: 'Your full name...', required: true },
+    { id: 'dob',  label: 'Date of Birth', type: 'date', required: true },
+  ],
+  zodiak: [
+    { id: 'dob',  label: 'Date of Birth',   type: 'date', required: true },
+    { id: 'name', label: 'Name (optional)', type: 'text', placeholder: 'Your name...' },
+  ],
+  shio: [
+    { id: 'birthyear', label: 'Birth Year',       type: 'number', placeholder: 'e.g. 1995', required: true },
+    { id: 'name',      label: 'Name (optional)',   type: 'text',   placeholder: 'Your name...' },
+  ],
+  bazi: [
+    { id: 'name', label: 'Name',                       type: 'text', placeholder: 'Your full name...', required: true },
+    { id: 'dob',  label: 'Date of Birth',              type: 'date', required: true },
+    { id: 'tob',  label: 'Time of Birth (optional)',   type: 'time' },
+  ],
+  numerologi: [
+    { id: 'name', label: 'Full Name',     type: 'text', placeholder: 'Full name as on birth certificate...', required: true },
+    { id: 'dob',  label: 'Date of Birth', type: 'date', required: true },
+  ],
+  tarot: [
+    { id: 'question', label: 'Question / Situation', type: 'textarea', placeholder: 'What would you like to know? Describe your situation...', required: true },
+    { id: 'name',     label: 'Name (optional)',       type: 'text',     placeholder: 'Your name...' },
+  ],
+  iching: [
+    { id: 'question', label: 'Question', type: 'textarea', placeholder: 'What guidance are you seeking?', required: true },
+  ],
+  rune: [
+    { id: 'question', label: 'Situation / Question', type: 'textarea', placeholder: 'What are you facing right now?', required: true },
+    { id: 'name',     label: 'Name (optional)',       type: 'text',     placeholder: 'Your name...' },
+  ],
+}
+
+// Partner fields shown when category === 'love' (systems that support comparison)
+const PARTNER_INPUTS = {
+  primbon:    [
+    { id: 'partner_name', label: "Partner's Name",          type: 'text',   placeholder: "Partner's name..." },
+    { id: 'partner_dob',  label: "Partner's Date of Birth", type: 'date' },
+  ],
+  zodiak: [
+    { id: 'partner_name', label: "Partner's Name (optional)", type: 'text', placeholder: "Partner's name..." },
+    { id: 'partner_dob',  label: "Partner's Date of Birth",   type: 'date' },
+  ],
+  shio: [
+    { id: 'partner_name',      label: "Partner's Name (optional)", type: 'text',   placeholder: "Partner's name..." },
+    { id: 'partner_birthyear', label: "Partner's Birth Year",      type: 'number', placeholder: 'e.g. 1993' },
+  ],
+  numerologi: [
+    { id: 'partner_name', label: "Partner's Full Name",      type: 'text', placeholder: "Partner's full name..." },
+    { id: 'partner_dob',  label: "Partner's Date of Birth",  type: 'date' },
+  ],
+  bazi: [
+    { id: 'partner_name', label: "Partner's Name (optional)", type: 'text', placeholder: "Partner's name..." },
+    { id: 'partner_dob',  label: "Partner's Date of Birth",   type: 'date' },
+  ],
+}
+
+function buildFortunePrompt(category, system, inputs) {
+  const catLabel = {
+    character: 'character and personality',
+    love:      'love, relationships, and compatibility',
+    career:    'career and financial fortune',
+    luck:      'luck and fate',
+    today:     "today's reading",
+    future:    'future outlook',
+  }[category]
+
+  const sysLabel = {
+    primbon:    'Primbon Jawa',
+    zodiak:     'Western Zodiac',
+    shio:       'Chinese Shio',
+    bazi:       'Ba Zi (Four Pillars)',
+    numerologi: 'Numerology',
+    tarot:      'Tarot',
+    iching:     'I Ching',
+    rune:       'Norse Runes',
+  }[system]
+
+  const lines = ['Please give me a ' + catLabel + ' reading using ' + sysLabel + '.', '']
+
+  if (inputs.name)      lines.push('Name: ' + inputs.name)
+  if (inputs.dob)       lines.push('Date of Birth: ' + inputs.dob)
+  if (inputs.birthyear) lines.push('Birth Year: ' + inputs.birthyear)
+  if (inputs.tob)       lines.push('Time of Birth: ' + inputs.tob)
+  if (inputs.question)  lines.push('Question / Situation: ' + inputs.question)
+
+  const hasPartner = inputs.partner_name || inputs.partner_dob || inputs.partner_birthyear
+  if (hasPartner) {
+    lines.push('')
+    lines.push("Partner's Information:")
+    if (inputs.partner_name)      lines.push("Partner's Name: " + inputs.partner_name)
+    if (inputs.partner_dob)       lines.push("Partner's Date of Birth: " + inputs.partner_dob)
+    if (inputs.partner_birthyear) lines.push("Partner's Birth Year: " + inputs.partner_birthyear)
+  }
+
+  return lines.join('\n')
+}
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
@@ -288,7 +431,7 @@ const TAB_CONFIG = {
   fortune: {
     label: 'Fortune',
     model: 'nova-fast',
-    welcomeContent: "Welcome, seeker. The cards are ready to reveal what lies ahead.\n\nAsk about love, career, life path — or simply request your horoscope for today. What would you like to explore?",
+    welcomeContent: "Welcome. Select a category below to get a structured reading, or simply type your question.\n\nAvailable systems: Primbon, Zodiac, Shio, Ba Zi, Numerology, Tarot, I Ching, Rune.",
   },
   story: {
     label: 'Story',
@@ -298,13 +441,11 @@ const TAB_CONFIG = {
   builder: {
     label: 'Builder',
     model: 'gemini-fast',
-    welcomeContent: "**System ready.** Describe what you want to build or automate:\n\n**Option 1 — Quick:**\nOne direct sentence describing your task, app, content system, or workflow.\n\n**Option 2 — Structured:**\n→ Domain: [Topic or field]\n→ Target User: [Who uses this output]\n→ Success Metric: [What ideal output looks like]\n\nEngine will classify your request and generate the right blueprint format.",
+    welcomeContent: "**System ready.** Describe what you want to build or automate:\n\n**Option 1 — Quick:**\nOne direct sentence describing your task, app, content system, or workflow.\n\n**Option 2 — Structured:**\n-> Domain: [Topic or field]\n-> Target User: [Who uses this output]\n-> Success Metric: [What ideal output looks like]\n\nEngine will classify your request and generate the right blueprint format.",
   },
 }
 
 const SYSTEM_MAP = { fortune: SYSTEM_FORTUNE, story: SYSTEM_STORY, builder: SYSTEM_BUILDER }
-
-// ─── Tab icons ─────────────────────────────────────────────────────────────────
 
 const TAB_ICON_MAP = {
   fortune: Stars,
@@ -313,24 +454,24 @@ const TAB_ICON_MAP = {
   library: BookOpen,
 }
 
-// ─── Builder Gate Questions ───────────────────────────────────────────────────
+// ─── Builder Gate ──────────────────────────────────────────────────────────────
 
 const BUILDER_QS = {
   content: [
-    { id: 'niche', q: 'What is your main niche & topic?', hint: 'E.g.: tech reviews, Gen Z finance, minimalist lifestyle', ph: 'Describe your niche...' },
+    { id: 'niche',    q: 'What is your main niche & topic?',       hint: 'E.g.: tech reviews, Gen Z finance, minimalist lifestyle', ph: 'Describe your niche...' },
     { id: 'platform', q: 'Primary platform?', type: 'choice', opts: ['YouTube (long-form)', 'Website / Blog', 'Short-form (TikTok/Reels)', 'Newsletter / Email', 'Multi-platform'] },
-    { id: 'goal', q: 'Main goal for the first 90 days?', hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
+    { id: 'goal',     q: 'Main goal for the first 90 days?',       hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
   ],
   app: [
-    { id: 'idea', q: 'Describe this app in one sentence.', hint: "What it does, who it's for, what problem it solves", ph: 'This app is... that helps... to...' },
-    { id: 'user', q: 'Who is the target user?', hint: 'Specific persona = sharper blueprint', ph: 'E.g.: YouTube creators 18–30 who struggle with...' },
+    { id: 'idea',  q: 'Describe this app in one sentence.',  hint: "What it does, who it's for, what problem it solves", ph: 'This app is... that helps... to...' },
+    { id: 'user',  q: 'Who is the target user?',             hint: 'Specific persona = sharper blueprint',                ph: 'E.g.: YouTube creators 18-30 who struggle with...' },
     { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Recommend the best'] },
   ],
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getUserKey() { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
+function getUserKey()   { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
 function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catch {} }
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
 
@@ -338,7 +479,6 @@ function makeWelcome(tabId) {
   return { role: 'assistant', content: TAB_CONFIG[tabId].welcomeContent, isWelcome: true }
 }
 
-// Simple markdown renderer
 function renderContent(content) {
   const lines = content.split('\n')
   const result = []
@@ -380,40 +520,189 @@ function renderContent(content) {
   return result
 }
 
-// ─── Builder Gate UI ─────────────────────────────────────────────────────────
+// ─── Fortune Gate UI ──────────────────────────────────────────────────────────
+
+function FortuneGate({ onStart }) {
+  const [step, setStep]       = useState('category')
+  const [category, setCategory] = useState(null)
+  const [system, setSystem]   = useState(null)
+  const [inputs, setInputs]   = useState({})
+
+  const availableSystems = category ? SYSTEMS_BY_CATEGORY[category] : []
+  const fields = system ? SYSTEM_INPUTS[system] : []
+  const partnerFields = (category === 'love' && system && PARTNER_INPUTS[system]) ? PARTNER_INPUTS[system] : []
+
+  function isValid() {
+    return fields.filter(f => f.required).every(f => (inputs[f.id] || '').trim())
+  }
+
+  function handleSubmit() {
+    onStart(buildFortunePrompt(category, system, inputs))
+  }
+
+  function setInput(id, val) {
+    setInputs(prev => ({ ...prev, [id]: val }))
+  }
+
+  const selectedCat = FORTUNE_CATEGORIES.find(c => c.id === category)
+
+  // Step 1: Category
+  if (step === 'category') {
+    return (
+      <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
+        <div className="px-4 pt-4 pb-3 border-b vs-border">
+          <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">Fortune Reading</p>
+          <p className="text-sm font-bold vs-text mt-1">What would you like to know?</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 p-3">
+          {FORTUNE_CATEGORIES.map(cat => (
+            <button key={cat.id}
+              onClick={() => { setCategory(cat.id); setSystem(null); setInputs({}); setStep('system') }}
+              className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
+              style={{ background: 'var(--vs-bg)' }}>
+              <p className="text-xs font-bold vs-text">{cat.label}</p>
+              <p className="text-[10px] vs-text-sub mt-0.5">{cat.desc}</p>
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] vs-text-sub text-center pb-3">or type your question directly below</p>
+      </div>
+    )
+  }
+
+  // Step 2: System
+  if (step === 'system') {
+    return (
+      <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
+        <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">{selectedCat?.label}</p>
+            <p className="text-sm font-bold vs-text mt-0.5">Choose a system</p>
+          </div>
+          <button onClick={() => setStep('category')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 p-3">
+          {availableSystems.map(sysId => {
+            const sys = FORTUNE_SYSTEMS[sysId]
+            return (
+              <button key={sysId}
+                onClick={() => { setSystem(sysId); setInputs({}); setStep('input') }}
+                className="rounded-xl border vs-border p-3 text-left transition-all hover:border-[var(--vs-accent)]"
+                style={{ background: 'var(--vs-bg)' }}>
+                <p className="text-xs font-bold vs-text">{sys.label}</p>
+                <p className="text-[10px] vs-text-sub mt-0.5">{sys.desc}</p>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // Step 3: Input fields
+  return (
+    <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
+      <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">
+            {FORTUNE_SYSTEMS[system]?.label} &middot; {selectedCat?.label}
+          </p>
+          <p className="text-sm font-bold vs-text mt-0.5">Fill in your details</p>
+        </div>
+        <button onClick={() => setStep('system')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="p-3 flex flex-col gap-2.5">
+        {fields.map(field => (
+          <div key={field.id}>
+            <p className="text-[10px] font-semibold vs-text mb-1">{field.label}</p>
+            {field.type === 'textarea' ? (
+              <textarea
+                value={inputs[field.id] || ''}
+                onChange={e => setInput(field.id, e.target.value)}
+                placeholder={field.placeholder}
+                rows={2}
+                className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none resize-none"
+                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
+              />
+            ) : (
+              <input
+                type={field.type}
+                value={inputs[field.id] || ''}
+                onChange={e => setInput(field.id, e.target.value)}
+                placeholder={field.placeholder || ''}
+                className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none"
+                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
+              />
+            )}
+          </div>
+        ))}
+
+        {partnerFields.length > 0 && (
+          <>
+            <div className="border-t vs-border pt-2 mt-0.5">
+              <p className="text-[10px] font-bold vs-text-sub uppercase tracking-wider">Partner (optional)</p>
+            </div>
+            {partnerFields.map(field => (
+              <div key={field.id}>
+                <p className="text-[10px] font-semibold vs-text mb-1">{field.label}</p>
+                <input
+                  type={field.type}
+                  value={inputs[field.id] || ''}
+                  onChange={e => setInput(field.id, e.target.value)}
+                  placeholder={field.placeholder || ''}
+                  className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none"
+                  style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
+                />
+              </div>
+            ))}
+          </>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={!isValid()}
+          className="vs-btn w-full py-2.5 rounded-xl text-xs font-bold mt-1"
+          style={{ opacity: isValid() ? 1 : 0.4 }}>
+          Read My Fortune
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Builder Gate UI ──────────────────────────────────────────────────────────
 
 function BuilderGate({ onStart }) {
-  const [step, setStep] = useState('gate')
-  const [type, setType] = useState(null)
-  const [qStep, setQStep] = useState(0)
+  const [step, setStep]       = useState('gate')
+  const [type, setType]       = useState(null)
+  const [qStep, setQStep]     = useState(0)
   const [answers, setAnswers] = useState({})
   const [textVal, setTextVal] = useState('')
 
   const qs = type ? BUILDER_QS[type] : []
   const currentQ = qs[qStep]
 
-  function selectType(t) {
-    setType(t); setStep('questions'); setQStep(0); setAnswers({}); setTextVal('')
-  }
-
-  function pickChoice(v) {
-    setAnswers(a => ({ ...a, [currentQ.id]: v }))
-  }
+  function selectType(t) { setType(t); setStep('questions'); setQStep(0); setAnswers({}); setTextVal('') }
+  function pickChoice(v) { setAnswers(a => ({ ...a, [currentQ.id]: v })) }
 
   function nextStep() {
     const val = currentQ.type === 'choice' ? answers[currentQ.id] : textVal.trim()
     if (!val) return
     const newAnswers = { ...answers, [currentQ.id]: val }
     setAnswers(newAnswers); setTextVal('')
-
     if (qStep < qs.length - 1) {
       setQStep(qStep + 1)
     } else {
       let msg = ''
       if (type === 'content') {
-        msg = `Build a Content System blueprint for:\n- Niche: ${newAnswers.niche}\n- Platform: ${newAnswers.platform}\n- Goal: ${newAnswers.goal}`
+        msg = 'Build a Content System blueprint for:\n- Niche: ' + newAnswers.niche + '\n- Platform: ' + newAnswers.platform + '\n- Goal: ' + newAnswers.goal
       } else {
-        msg = `Build an App Spec blueprint for:\n- App: ${newAnswers.idea}\n- Target user: ${newAnswers.user}\n- Stack: ${newAnswers.stack}`
+        msg = 'Build an App Spec blueprint for:\n- App: ' + newAnswers.idea + '\n- Target user: ' + newAnswers.user + '\n- Stack: ' + newAnswers.stack
       }
       onStart(msg)
     }
@@ -458,7 +747,7 @@ function BuilderGate({ onStart }) {
       <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
         <div>
           <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">
-            {type === 'content' ? 'Content System' : 'App Spec'} · {qStep + 1}/{qs.length}
+            {type === 'content' ? 'Content System' : 'App Spec'} &middot; {qStep + 1}/{qs.length}
           </p>
           <p className="text-sm font-bold vs-text mt-0.5">{currentQ?.q}</p>
           {currentQ?.hint && <p className="text-[10px] vs-text-sub mt-0.5">{currentQ.hint}</p>}
@@ -497,7 +786,7 @@ function BuilderGate({ onStart }) {
           disabled={currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()}
           className="mt-2.5 w-full py-2 rounded-xl text-xs font-bold transition-all"
           style={{ background: 'var(--vs-accent)', color: '#fff', opacity: (currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()) ? 0.4 : 1 }}>
-          {qStep < qs.length - 1 ? 'Next →' : 'Generate Blueprint →'}
+          {qStep < qs.length - 1 ? 'Next' : 'Generate Blueprint'}
         </button>
       </div>
     </div>
@@ -512,7 +801,7 @@ function ChatPageInner() {
   const [tab, setTab] = useState('fortune')
   const [messages, setMessages] = useState({
     fortune: [makeWelcome('fortune')],
-    story: [makeWelcome('story')],
+    story:   [makeWelcome('story')],
     builder: [makeWelcome('builder')],
   })
   const [sessionIds, setSessionIds] = useState({ fortune: null, story: null, builder: null })
@@ -522,7 +811,6 @@ function ChatPageInner() {
 
   const [builderModel, setBuilderModel] = useState('gemini-fast')
   const [showSettings, setShowSettings] = useState(false)
-
   const [libSelected, setLibSelected] = useState(null)
 
   const [userKey, setUserKey] = useState('')
@@ -530,7 +818,6 @@ function ChatPageInner() {
   const [keyInput, setKeyInput] = useState('')
   const [keyReason, setKeyReason] = useState('')
   const [pendingAction, setPendingAction] = useState(null)
-
   const [showPollenPopup, setShowPollenPopup] = useState(false)
 
   const [savedIndicator, setSavedIndicator] = useState({ fortune: false, story: false, builder: false })
@@ -538,7 +825,7 @@ function ChatPageInner() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [errorPopup, setErrorPopup] = useState(null)
 
-  const endRef = useRef(null)
+  const endRef   = useRef(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -619,6 +906,11 @@ function ChatPageInner() {
     doSend(text)
   }
 
+  async function handleFortuneStart(text) {
+    if (!text || loading) return
+    doSend(text)
+  }
+
   async function doSend(text) {
     const tabId = tab
     const userMsg = { role: 'user', content: text }
@@ -651,7 +943,7 @@ function ChatPageInner() {
         setLoading(false); return
       }
 
-      const assistantMsg = { role: 'assistant', content: data.result || "No response. Try again?" }
+      const assistantMsg = { role: 'assistant', content: data.result || 'No response. Try again?' }
       const finalMessages = [...newMessages, assistantMsg]
       setMessages(prev => ({ ...prev, [tabId]: finalMessages }))
       await autoSave(tabId, finalMessages)
@@ -696,60 +988,49 @@ function ChatPageInner() {
     } catch { toast('Failed to copy') }
   }
 
+  const fortuneHasUserMsg = tab === 'fortune' && messages.fortune.some(m => m.role === 'user')
   const builderHasUserMsg = tab === 'builder' && messages.builder.some(m => m.role === 'user')
-  const currentMessages = tab !== 'library' ? (messages[tab] || []) : []
+  const currentMessages   = tab !== 'library' ? (messages[tab] || []) : []
 
   return (
-    // No paddingTop — TopBar is gone from non-landing pages
     <div className="max-w-2xl mx-auto flex flex-col" style={{ height: 'calc(100vh - 68px)' }}>
 
-      {/* ── Page title ── */}
+      {/* Page title */}
       <div className="px-4 pt-3 pb-2 flex-shrink-0">
         <h1 className="text-2xl font-black vs-text text-center mb-1">
           AI <span className="vs-gradient-text">Chat</span>
         </h1>
         <p className="text-xs vs-text-sub text-center mb-3">smart conversations with artificial brainpower</p>
 
-        {/* ── Balance bar — pollen left, create tools right ── */}
+        {/* Balance bar */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          {/* Pollen pill — left */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
             {balance !== null ? (
-              <button
-                onClick={() => setShowPollenPopup(true)}
-                className="vs-text-sub hover:underline"
-              >
-                {balance > 0 ? `${balance.toFixed(3)} pollen` : 'pollen depleted'}
+              <button onClick={() => setShowPollenPopup(true)} className="vs-text-sub hover:underline">
+                {balance > 0 ? balance.toFixed(3) + ' pollen' : 'pollen depleted'}
               </button>
             ) : (
               <span className="vs-text-sub">Loading...</span>
             )}
             {userKey ? (
-              <button
-                onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
-                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1"
-              >
+              <button onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
                 key active
               </button>
             ) : (
-              <button
-                onClick={() => openKeyPopup('add')}
-                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1"
-              >
+              <button onClick={() => openKeyPopup('add')}
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
                 add key
               </button>
             )}
           </div>
-          {/* Create Tools — right */}
-          <a
-            href="/ai/create"
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity"
-          >
+          <a href="/ai/create"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity">
             Create Tools <ArrowRight size={10} />
           </a>
         </div>
 
-        {/* ── Tab bar ── */}
+        {/* Tab bar */}
         <div className="flex gap-1 vs-card border vs-border rounded-xl p-1">
           {[...Object.entries(TAB_CONFIG), ['library', { label: 'Library' }]].map(([id, cfg]) => {
             const Icon = TAB_ICON_MAP[id]
@@ -768,22 +1049,20 @@ function ChatPageInner() {
         </div>
       </div>
 
-      {/* ── Builder settings bar ── */}
+      {/* Builder settings bar */}
       {tab === 'builder' && (
         <div className="px-4 pb-2 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl vs-card border vs-border text-xs vs-text flex-1">
-              <Settings size={12} className="vs-text-sub" />
-              <span className="flex-1 text-left">{BUILDER_MODELS.find(m => m.id === builderModel)?.label || builderModel}</span>
-              {!BUILDER_MODELS.find(m => m.id === builderModel)?.free && <span className="text-[10px] vs-text-sub">key</span>}
-              <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </button>
-          </div>
+          <button onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl vs-card border vs-border text-xs vs-text w-full">
+            <Settings size={12} className="vs-text-sub" />
+            <span className="flex-1 text-left">{BUILDER_MODELS.find(m => m.id === builderModel)?.label || builderModel}</span>
+            {!BUILDER_MODELS.find(m => m.id === builderModel)?.free && <span className="text-[10px] vs-text-sub">key</span>}
+            <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+          </button>
           {showSettings && (
             <div className="mt-1 vs-card border vs-border rounded-xl max-h-48 overflow-y-auto">
               <div className="p-2 border-b vs-border">
-                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">Model · free · key required</p>
+                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">Model &middot; free &middot; key required</p>
               </div>
               {BUILDER_MODELS.map(m => (
                 <button key={m.id} onClick={() => {
@@ -797,26 +1076,26 @@ function ChatPageInner() {
               ))}
             </div>
           )}
-          {/* Model tier hint — same as create page */}
-          <p className="text-[10px] vs-text-sub mt-1.5">free · no key needed &nbsp;|&nbsp; key · your own API key</p>
+          <p className="text-[10px] vs-text-sub mt-1.5">free &middot; no key needed &nbsp;|&nbsp; key &middot; your own API key</p>
         </div>
       )}
 
-      {/* ── Messages ── */}
+      {/* Messages */}
       {tab !== 'library' && (
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 py-2 pb-4">
+
+            {tab === 'fortune' && !fortuneHasUserMsg && (
+              <FortuneGate onStart={handleFortuneStart} />
+            )}
+
             {tab === 'builder' && !builderHasUserMsg && (
               <BuilderGate onStart={handleBuilderStart} />
             )}
 
             {currentMessages.map((msg, i) => (
-              <div key={i} className={`flex px-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] rounded-2xl text-sm ${
-                  msg.role === 'user'
-                    ? 'px-4 py-3 text-white rounded-br-sm'
-                    : 'px-4 py-3 rounded-bl-sm'
-                }`}
+              <div key={i} className={'flex px-3 ' + (msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div className={'max-w-[88%] rounded-2xl text-sm ' + (msg.role === 'user' ? 'px-4 py-3 text-white rounded-br-sm' : 'px-4 py-3 rounded-bl-sm')}
                   style={msg.role === 'user'
                     ? { backgroundColor: 'var(--vs-accent)' }
                     : { backgroundColor: 'var(--vs-card)', border: '1px solid var(--vs-border)', color: 'var(--vs-text)' }
@@ -849,7 +1128,7 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Library ── */}
+      {/* Library */}
       {tab === 'library' && (
         <div className="flex-1 overflow-y-auto px-4 py-2">
           <p className="text-xs vs-text-sub text-center mb-4">Ready-to-use master prompts — copy and use in any AI</p>
@@ -884,7 +1163,7 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Input bar ── */}
+      {/* Input bar */}
       {tab !== 'library' && (
         <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t vs-border">
           <div className="flex items-center gap-2 mb-2">
@@ -900,7 +1179,11 @@ function ChatPageInner() {
           </div>
           <form onSubmit={handleSend} className="flex gap-2">
             <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
-              placeholder={tab === 'fortune' ? 'Ask about your fortune...' : tab === 'story' ? 'Continue the story...' : 'Describe what to build...'}
+              placeholder={
+                tab === 'fortune' ? 'Ask about your fortune, or use the guide above...' :
+                tab === 'story'   ? 'Continue the story...' :
+                'Describe what to build...'
+              }
               className="flex-1 py-3 px-4 rounded-xl border text-sm vs-text outline-none"
               style={{ backgroundColor: 'var(--vs-card)', borderColor: 'var(--vs-border)' }} />
             <button type="submit" disabled={loading || !input.trim()}
@@ -916,14 +1199,14 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Library preview modal ── */}
+      {/* Library preview modal */}
       {libSelected && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-20" onClick={() => setLibSelected(null)}>
           <div className="vs-card rounded-2xl border vs-border w-full max-w-lg max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b vs-border flex-shrink-0">
               <div>
                 <p className="text-sm font-bold vs-text">{libSelected.title}</p>
-                <p className="text-[10px] vs-text-sub">Type {libSelected.type} — {libSelected.typeName}</p>
+                <p className="text-[10px] vs-text-sub">Type {libSelected.type} &mdash; {libSelected.typeName}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => copyMessage(libSelected.prompt, libSelected.id)}
@@ -940,11 +1223,11 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Confirm clear ── */}
+      {/* Confirm clear */}
       {confirmClear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setConfirmClear(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">🗑️</p>
+            <Trash2 size={28} className="vs-text-sub mx-auto mb-3" />
             <h3 className="text-lg font-bold vs-text mb-2">Clear this chat?</h3>
             <p className="text-sm vs-text-sub mb-5">Current conversation will be cleared.</p>
             <div className="flex gap-2">
@@ -955,80 +1238,57 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Pollen popup — 2 variants based on key status ── */}
+      {/* Pollen popup */}
       {showPollenPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-
             {!userKey ? (
-              /* Variant 1: No key — existing copy, don't change */
               <>
-                <p className="text-4xl mb-3">🌼</p>
                 <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
                 <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
-                  <p className="text-2xl font-black vs-gradient-text">
-                    {balance !== null ? balance.toFixed(3) : '...'}
-                  </p>
+                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
                   <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
                 </div>
-                <p className="text-xs vs-text-sub leading-relaxed mb-2">
-                  resets every hour whether you&apos;re ready or not 💀
-                </p>
                 <p className="text-xs vs-text-sub leading-relaxed mb-4">
-                  it&apos;s giving vending machine energy — insert prompt, get output, wait for refill. add your own key to skip the wait fr fr 🔑
+                  Resets every hour. Add your own key to skip the wait and unlock premium models.
                 </p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('add'); setShowKeyPopup(true) }}
                   className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
-                  Add API Key — Skip the Queue
+                  Add API Key
                 </button>
-                <button onClick={() => setShowPollenPopup(false)}
-                  className="w-full text-center text-[10px] vs-text-sub hover:underline">
-                  got it, i&apos;ll wait
+                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">
+                  Got it, I will wait
                 </button>
               </>
             ) : (
-              /* Variant 2: Has key — power user vibes */
               <>
-                <p className="text-4xl mb-3">✨</p>
-                <h3 className="text-lg font-bold vs-text mb-2">you&apos;re built different</h3>
+                <h3 className="text-lg font-bold vs-text mb-2">Pollen</h3>
                 <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
-                  <p className="text-2xl font-black vs-gradient-text">
-                    {balance !== null ? balance.toFixed(3) : '...'}
-                  </p>
+                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
                   <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
                 </div>
-                <p className="text-xs font-semibold vs-text-sub mb-1">
-                  🔑 key: {userKey.slice(0, 8)}...
-                </p>
-                <p className="text-xs vs-text-sub leading-relaxed mb-4">
-                  you brought your own key. respect. no hourly refreshes, no begging for pollen. while everyone else is waiting in line, you&apos;re just out here eating. 😤
-                </p>
-                <button
-                  onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
+                <p className="text-[10px] vs-text-sub mb-4">Key active: {userKey.slice(0, 8)}...</p>
+                <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
                   className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
                   Manage Key
                 </button>
-                <button onClick={() => setShowPollenPopup(false)}
-                  className="w-full text-center text-[10px] vs-text-sub hover:underline">
-                  close
-                </button>
+                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">Close</button>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Key popup ── */}
+      {/* Key popup */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
-              <p className="text-4xl mb-2">{keyReason === 'quota' ? '😭' : '🔑'}</p>
               <h3 className="text-lg font-bold vs-text mb-1">
                 {keyReason === 'quota' ? 'Pollen depleted' : userKey ? 'Manage API Key' : 'Add API Key'}
               </h3>
               <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? 'Pollen is out. Add your own key to keep going.' : 'Key for accessing premium models and personal pollen.'}
+                {keyReason === 'quota' ? 'Pollen is out. Add your own key to keep going.' : 'Your personal Pollinations API key.'}
               </p>
             </div>
             {(!userKey || keyReason !== 'manage') && (
@@ -1052,7 +1312,7 @@ function ChatPageInner() {
             </div>
             {userKey && (
               <div className="pt-3 border-t vs-border text-center">
-                <p className="text-[10px] vs-text-sub mb-1">Key active · {userKey.slice(0, 8)}...</p>
+                <p className="text-[10px] vs-text-sub mb-1">Key active &middot; {userKey.slice(0, 8)}...</p>
                 <button onClick={() => { handleKeyClear(); setShowKeyPopup(false) }} className="text-[10px] vs-text-sub hover:underline">Remove key</button>
               </div>
             )}
@@ -1064,11 +1324,10 @@ function ChatPageInner() {
         </div>
       )}
 
-      {/* ── Error popup ── */}
+      {/* Error popup */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">💀</p>
             <h3 className="text-lg font-bold vs-text mb-2">{errorPopup.title}</h3>
             <p className="text-sm vs-text-sub mb-5">{errorPopup.desc}</p>
             <button onClick={() => setErrorPopup(null)} className="vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold">Got it</button>
