@@ -76,7 +76,7 @@ YOUTUBE_API_KEY_2=...
 ## Run Locally
 
 ```bash
-git clone https://github.com/youget/viralscape.git
+git clone https://github.com/youget/VibeScape.git
 cd viralscape
 npm install
 cp .env.example .env.local   # add your keys
