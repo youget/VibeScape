@@ -78,7 +78,7 @@ export async function POST(request) {
       } else {
         // qwen-tts (free TTS)
         params.set('model', 'qwen-tts')
-        params.set('voice', voice || 'Cherry')
+        params.set('voice', voice || 'nova')
       }
 
       const audioUrl = `https://gen.pollinations.ai/audio/${encoded}?${params.toString()}`
