@@ -3,9 +3,10 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Send, Settings, Copy, Heart, Trash2, BookOpen, ChevronDown,
   ExternalLink, Loader2, X, Check, Stars, MessageCircle, Hammer,
-  ArrowRight, Monitor, Code2 } from 'lucide-react'
+  ArrowRight, Monitor, Code2, RefreshCw } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveSession, updateSession, getSession, toggleSessionFav } from '../../lib/chatdb'
+import { fetchTextModels, sortModels, toDropdown } from '../../lib/pollinationsModels'
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 
@@ -101,7 +102,6 @@ const LIBRARY_PROMPTS = [
     type: 'B',
     typeName: 'Task Prompt',
     category: 'Content',
-    tags: ['video', 'marketing', 'scripts'],
     description: 'Generates structured 60-90 second video scripts with hook, problem, solution, proof, and CTA.',
     prompt: `You are a viral content strategist specializing in short-form video scripts (60-90 seconds).
 
@@ -127,7 +127,6 @@ Start every session by asking: "What's the topic or product, and who is the targ
     type: 'B',
     typeName: 'Task Prompt',
     category: 'Marketing',
-    tags: ['ecommerce', 'copywriting', 'conversion'],
     description: 'Converts product features into high-converting copy with headline, hook, benefits, social proof, and CTA.',
     prompt: `You are an e-commerce conversion copywriter. For any product provided, generate a complete copy package:
 
@@ -151,7 +150,6 @@ Start by asking: "What's the product, who buys it, and what's the #1 reason they
     type: 'D',
     typeName: 'Content System',
     category: 'Brand',
-    tags: ['linkedin', 'personal brand', 'content strategy'],
     description: 'Builds a complete LinkedIn content system with positioning, pillars, weekly cadence, and post templates.',
     prompt: `You are a personal brand strategist. Build a complete LinkedIn content system for the person I describe.
 
@@ -183,7 +181,6 @@ Start by asking: "What's your professional background, who do you want to attrac
     type: 'A',
     typeName: 'Chat Prompt',
     category: 'Business',
-    tags: ['customer support', 'chatbot', 'automation'],
     description: 'A complete support agent persona with resolution protocols, tone guidelines, and escalation triggers.',
     prompt: `You are Alex, a customer support specialist. Your role is to resolve customer issues efficiently and leave every interaction with a positive impression.
 
@@ -212,7 +209,6 @@ OUT OF SCOPE: Legal disputes, pricing negotiations, complaints requiring managem
     type: 'A',
     typeName: 'Chat Prompt',
     category: 'Education',
-    tags: ['tutor', 'education', 'learning'],
     description: 'A Socratic teaching bot that builds genuine understanding using the Feynman technique and adaptive difficulty.',
     prompt: `You are an adaptive learning tutor. Your goal is to build genuine understanding, not just provide answers.
 
@@ -242,7 +238,6 @@ Respond in the same language the student writes in.`,
     type: 'D',
     typeName: 'Content System',
     category: 'SEO',
-    tags: ['seo', 'blog', 'content marketing'],
     description: 'Full content briefs with keyword strategy, article structure, meta tags, and repurposing angles.',
     prompt: `You are an SEO content strategist building topical authority. For any keyword and niche provided, generate a complete content brief:
 
@@ -272,37 +267,29 @@ Start by asking: "What's your target keyword, your website's niche, and what act
   },
 ]
 
-// ─── Builder models ───────────────────────────────────────────────────────────
+// ─── Builder fallback models (dipakai kalau fetch gagal) ──────────────────────
 
-const BUILDER_MODELS = [
-  { id: 'gemini-fast',           label: 'Gemini 2.5 Flash Lite',        free: true  },
-  { id: 'gemini-search',         label: 'Gemini 2.5 Flash Search',      free: false },
-  { id: 'openai',                label: 'GPT-5.4 Nano',                  free: false },
-  { id: 'openai-fast',           label: 'GPT-5 Nano',                    free: false },
-  { id: 'openai-large',          label: 'GPT-5.4',                       free: false },
-  { id: 'grok',                  label: 'Grok 4.1 Fast',                 free: false },
-  { id: 'grok-large',            label: 'Grok 4.20 Reasoning',           free: false },
-  { id: 'claude-fast',           label: 'Claude Haiku 4.5',              free: false },
-  { id: 'mistral-large',         label: 'Mistral Large 3',               free: false },
-  { id: 'deepseek',              label: 'DeepSeek V3.2',                 free: false },
-  { id: 'qwen-large',            label: 'Qwen3.6 Plus',                  free: false },
-  { id: 'qwen-coder-large',      label: 'Qwen3 Coder Next',              free: false },
-  { id: 'nova',                  label: 'Nova 2 Lite',                   free: false },
-  { id: 'minimax',               label: 'MiniMax M2.5',                  free: false },
-  { id: 'kimi',                  label: 'Moonshot Kimi K2.5',            free: false },
-  { id: 'perplexity-fast',       label: 'Perplexity Sonar',              free: false },
-  { id: 'perplexity-reasoning',  label: 'Perplexity Sonar Reasoning',    free: false },
+const BUILDER_MODELS_FALLBACK = [
+  { id: 'gemini-fast',  label: 'Gemini 2.5 Flash Lite',  free: true  },
+  { id: 'openai',       label: 'GPT-5.4 Nano',            free: false },
+  { id: 'openai-large', label: 'GPT-5.4',                 free: false },
+  { id: 'mistral-large',label: 'Mistral Large 3',         free: false },
+  { id: 'claude-fast',  label: 'Claude Haiku 4.5',        free: false },
+  { id: 'grok',         label: 'Grok 4.1 Fast',           free: false },
+  { id: 'deepseek',     label: 'DeepSeek V3.2',           free: false },
+  { id: 'qwen-large',   label: 'Qwen3.6 Plus',            free: false },
+  { id: 'nova',         label: 'Nova 2 Lite',             free: false },
 ]
 
 // ─── Fortune Gate data ────────────────────────────────────────────────────────
 
 const FORTUNE_CATEGORIES = [
-  { id: 'character', label: 'Character',       desc: 'Personality & inner nature'       },
-  { id: 'love',      label: 'Love & Soulmate',  desc: 'Relationships & compatibility'    },
-  { id: 'career',    label: 'Career & Wealth',  desc: 'Life path & finances'             },
-  { id: 'luck',      label: 'Luck & Fate',      desc: 'Fortune & daily energy'           },
-  { id: 'today',     label: 'Today',            desc: 'Daily reading for you'            },
-  { id: 'future',    label: 'Future',           desc: 'What lies ahead'                  },
+  { id: 'character', label: 'Character',       desc: 'Personality & inner nature'    },
+  { id: 'love',      label: 'Love & Soulmate',  desc: 'Relationships & compatibility' },
+  { id: 'career',    label: 'Career & Wealth',  desc: 'Life path & finances'          },
+  { id: 'luck',      label: 'Luck & Fate',      desc: 'Fortune & daily energy'        },
+  { id: 'today',     label: 'Today',            desc: 'Daily reading for you'         },
+  { id: 'future',    label: 'Future',           desc: 'What lies ahead'               },
 ]
 
 const SYSTEMS_BY_CATEGORY = {
@@ -315,14 +302,14 @@ const SYSTEMS_BY_CATEGORY = {
 }
 
 const FORTUNE_SYSTEMS = {
-  primbon:    { label: 'Primbon',     desc: 'Javanese traditional fate system'   },
-  zodiak:     { label: 'Zodiac',      desc: 'Western star sign astrology'        },
-  shio:       { label: 'Shio',        desc: 'Chinese 12-animal zodiac'           },
-  bazi:       { label: 'Ba Zi',       desc: 'Four pillars of destiny'            },
-  numerologi: { label: 'Numerology',  desc: 'The meaning of numbers'             },
-  tarot:      { label: 'Tarot',       desc: '78-card archetypal system'          },
-  iching:     { label: 'I Ching',     desc: 'Ancient Book of Changes'            },
-  rune:       { label: 'Rune',        desc: 'Norse runic divination'             },
+  primbon:    { label: 'Primbon',     desc: 'Javanese traditional fate system' },
+  zodiak:     { label: 'Zodiac',      desc: 'Western star sign astrology'      },
+  shio:       { label: 'Shio',        desc: 'Chinese 12-animal zodiac'         },
+  bazi:       { label: 'Ba Zi',       desc: 'Four pillars of destiny'          },
+  numerologi: { label: 'Numerology',  desc: 'The meaning of numbers'           },
+  tarot:      { label: 'Tarot',       desc: '78-card archetypal system'        },
+  iching:     { label: 'I Ching',     desc: 'Ancient Book of Changes'          },
+  rune:       { label: 'Rune',        desc: 'Norse runic divination'           },
 }
 
 const SYSTEM_INPUTS = {
@@ -339,9 +326,9 @@ const SYSTEM_INPUTS = {
     { id: 'name',      label: 'Name (optional)',   type: 'text',   placeholder: 'Your name...' },
   ],
   bazi: [
-    { id: 'name', label: 'Name',                       type: 'text', placeholder: 'Your full name...', required: true },
-    { id: 'dob',  label: 'Date of Birth',              type: 'date', required: true },
-    { id: 'tob',  label: 'Time of Birth (optional)',   type: 'time' },
+    { id: 'name', label: 'Name',                     type: 'text', placeholder: 'Your full name...', required: true },
+    { id: 'dob',  label: 'Date of Birth',            type: 'date', required: true },
+    { id: 'tob',  label: 'Time of Birth (optional)', type: 'time' },
   ],
   numerologi: [
     { id: 'name', label: 'Full Name',     type: 'text', placeholder: 'Full name as on birth certificate...', required: true },
@@ -360,7 +347,6 @@ const SYSTEM_INPUTS = {
   ],
 }
 
-// Partner fields shown when category === 'love' (systems that support comparison)
 const PARTNER_INPUTS = {
   primbon:    [
     { id: 'partner_name', label: "Partner's Name",          type: 'text',   placeholder: "Partner's name..." },
@@ -375,8 +361,8 @@ const PARTNER_INPUTS = {
     { id: 'partner_birthyear', label: "Partner's Birth Year",      type: 'number', placeholder: 'e.g. 1993' },
   ],
   numerologi: [
-    { id: 'partner_name', label: "Partner's Full Name",      type: 'text', placeholder: "Partner's full name..." },
-    { id: 'partner_dob',  label: "Partner's Date of Birth",  type: 'date' },
+    { id: 'partner_name', label: "Partner's Full Name",     type: 'text', placeholder: "Partner's full name..." },
+    { id: 'partner_dob',  label: "Partner's Date of Birth", type: 'date' },
   ],
   bazi: [
     { id: 'partner_name', label: "Partner's Name (optional)", type: 'text', placeholder: "Partner's name..." },
@@ -406,7 +392,6 @@ function buildFortunePrompt(category, system, inputs) {
   }[system]
 
   const lines = ['Please give me a ' + catLabel + ' reading using ' + sysLabel + '.', '']
-
   if (inputs.name)      lines.push('Name: ' + inputs.name)
   if (inputs.dob)       lines.push('Date of Birth: ' + inputs.dob)
   if (inputs.birthyear) lines.push('Birth Year: ' + inputs.birthyear)
@@ -421,7 +406,6 @@ function buildFortunePrompt(category, system, inputs) {
     if (inputs.partner_dob)       lines.push("Partner's Date of Birth: " + inputs.partner_dob)
     if (inputs.partner_birthyear) lines.push("Partner's Birth Year: " + inputs.partner_birthyear)
   }
-
   return lines.join('\n')
 }
 
@@ -454,17 +438,17 @@ const TAB_ICON_MAP = {
   library: BookOpen,
 }
 
-// ─── Builder Gate ──────────────────────────────────────────────────────────────
+// ─── Builder Gate UI ──────────────────────────────────────────────────────────
 
 const BUILDER_QS = {
   content: [
-    { id: 'niche',    q: 'What is your main niche & topic?',       hint: 'E.g.: tech reviews, Gen Z finance, minimalist lifestyle', ph: 'Describe your niche...' },
+    { id: 'niche',    q: 'What is your main niche & topic?',  hint: 'E.g.: tech reviews, Gen Z finance, minimalist lifestyle', ph: 'Describe your niche...' },
     { id: 'platform', q: 'Primary platform?', type: 'choice', opts: ['YouTube (long-form)', 'Website / Blog', 'Short-form (TikTok/Reels)', 'Newsletter / Email', 'Multi-platform'] },
-    { id: 'goal',     q: 'Main goal for the first 90 days?',       hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
+    { id: 'goal',     q: 'Main goal for the first 90 days?',  hint: 'Subscriber count, revenue, or a specific milestone', ph: 'E.g.: 1,000 subscribers, $500/month from affiliate...' },
   ],
   app: [
     { id: 'idea',  q: 'Describe this app in one sentence.',  hint: "What it does, who it's for, what problem it solves", ph: 'This app is... that helps... to...' },
-    { id: 'user',  q: 'Who is the target user?',             hint: 'Specific persona = sharper blueprint',                ph: 'E.g.: YouTube creators 18-30 who struggle with...' },
+    { id: 'user',  q: 'Who is the target user?',             hint: 'Specific persona = sharper blueprint', ph: 'E.g.: YouTube creators 18-30 who struggle with...' },
     { id: 'stack', q: 'Tech stack preference?', type: 'choice', opts: ['Next.js + Vercel (recommended)', 'React + Node.js API', 'HTML/CSS/JS serverless', 'Recommend the best'] },
   ],
 }
@@ -501,19 +485,16 @@ function renderContent(content) {
       continue
     }
     if (inCode) { codeBuffer.push(line); continue }
-
     if (line.match(/^─+$/) || line.match(/^-{3,}$/)) {
       result.push(<hr key={i} className="my-2 border-t vs-border" />)
       continue
     }
-
     const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/)
     const rendered = parts.map((part, j) => {
       if (part.startsWith('**') && part.endsWith('**')) return <strong key={j}>{part.slice(2, -2)}</strong>
       if (part.startsWith('`') && part.endsWith('`')) return <code key={j} className="px-1 py-0.5 rounded text-[11px]" style={{ backgroundColor: 'var(--vs-bg2)', fontFamily: 'monospace' }}>{part.slice(1, -1)}</code>
       return part
     })
-
     if (line === '') { result.push(<br key={i} />) }
     else { result.push(<p key={i} className="leading-relaxed">{rendered}</p>) }
   }
@@ -523,30 +504,21 @@ function renderContent(content) {
 // ─── Fortune Gate UI ──────────────────────────────────────────────────────────
 
 function FortuneGate({ onStart }) {
-  const [step, setStep]       = useState('category')
+  const [step, setStep]         = useState('category')
   const [category, setCategory] = useState(null)
-  const [system, setSystem]   = useState(null)
-  const [inputs, setInputs]   = useState({})
+  const [system, setSystem]     = useState(null)
+  const [inputs, setInputs]     = useState({})
 
   const availableSystems = category ? SYSTEMS_BY_CATEGORY[category] : []
-  const fields = system ? SYSTEM_INPUTS[system] : []
-  const partnerFields = (category === 'love' && system && PARTNER_INPUTS[system]) ? PARTNER_INPUTS[system] : []
+  const fields           = system ? SYSTEM_INPUTS[system] : []
+  const partnerFields    = (category === 'love' && system && PARTNER_INPUTS[system]) ? PARTNER_INPUTS[system] : []
 
   function isValid() {
     return fields.filter(f => f.required).every(f => (inputs[f.id] || '').trim())
   }
-
-  function handleSubmit() {
-    onStart(buildFortunePrompt(category, system, inputs))
-  }
-
-  function setInput(id, val) {
-    setInputs(prev => ({ ...prev, [id]: val }))
-  }
-
+  function setInput(id, val) { setInputs(prev => ({ ...prev, [id]: val })) }
   const selectedCat = FORTUNE_CATEGORIES.find(c => c.id === category)
 
-  // Step 1: Category
   if (step === 'category') {
     return (
       <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
@@ -570,7 +542,6 @@ function FortuneGate({ onStart }) {
     )
   }
 
-  // Step 2: System
   if (step === 'system') {
     return (
       <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
@@ -579,9 +550,7 @@ function FortuneGate({ onStart }) {
             <p className="text-xs font-bold vs-text-sub uppercase tracking-wider">{selectedCat?.label}</p>
             <p className="text-sm font-bold vs-text mt-0.5">Choose a system</p>
           </div>
-          <button onClick={() => setStep('category')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text">
-            <X size={14} />
-          </button>
+          <button onClick={() => setStep('category')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text"><X size={14} /></button>
         </div>
         <div className="grid grid-cols-2 gap-2 p-3">
           {availableSystems.map(sysId => {
@@ -601,7 +570,6 @@ function FortuneGate({ onStart }) {
     )
   }
 
-  // Step 3: Input fields
   return (
     <div className="mx-3 mb-3 rounded-2xl border vs-border overflow-hidden" style={{ background: 'var(--vs-card)' }}>
       <div className="px-4 pt-4 pb-3 border-b vs-border flex items-center justify-between">
@@ -611,37 +579,25 @@ function FortuneGate({ onStart }) {
           </p>
           <p className="text-sm font-bold vs-text mt-0.5">Fill in your details</p>
         </div>
-        <button onClick={() => setStep('system')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text">
-          <X size={14} />
-        </button>
+        <button onClick={() => setStep('system')} className="vs-text-sub p-1.5 rounded-lg hover:vs-text"><X size={14} /></button>
       </div>
-
       <div className="p-3 flex flex-col gap-2.5">
         {fields.map(field => (
           <div key={field.id}>
             <p className="text-[10px] font-semibold vs-text mb-1">{field.label}</p>
             {field.type === 'textarea' ? (
-              <textarea
-                value={inputs[field.id] || ''}
-                onChange={e => setInput(field.id, e.target.value)}
-                placeholder={field.placeholder}
-                rows={2}
+              <textarea value={inputs[field.id] || ''} onChange={e => setInput(field.id, e.target.value)}
+                placeholder={field.placeholder} rows={2}
                 className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none resize-none"
-                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
-              />
+                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }} />
             ) : (
-              <input
-                type={field.type}
-                value={inputs[field.id] || ''}
-                onChange={e => setInput(field.id, e.target.value)}
+              <input type={field.type} value={inputs[field.id] || ''} onChange={e => setInput(field.id, e.target.value)}
                 placeholder={field.placeholder || ''}
                 className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none"
-                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
-              />
+                style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }} />
             )}
           </div>
         ))}
-
         {partnerFields.length > 0 && (
           <>
             <div className="border-t vs-border pt-2 mt-0.5">
@@ -650,23 +606,16 @@ function FortuneGate({ onStart }) {
             {partnerFields.map(field => (
               <div key={field.id}>
                 <p className="text-[10px] font-semibold vs-text mb-1">{field.label}</p>
-                <input
-                  type={field.type}
-                  value={inputs[field.id] || ''}
-                  onChange={e => setInput(field.id, e.target.value)}
+                <input type={field.type} value={inputs[field.id] || ''} onChange={e => setInput(field.id, e.target.value)}
                   placeholder={field.placeholder || ''}
                   className="w-full py-2 px-3 rounded-lg text-sm vs-text outline-none"
-                  style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
-                />
+                  style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }} />
               </div>
             ))}
           </>
         )}
-
-        <button
-          onClick={handleSubmit}
-          disabled={!isValid()}
-          className="vs-btn w-full py-2.5 rounded-xl text-xs font-bold mt-1"
+        <button onClick={() => onStart(buildFortunePrompt(category, system, inputs))}
+          disabled={!isValid()} className="vs-btn w-full py-2.5 rounded-xl text-xs font-bold mt-1"
           style={{ opacity: isValid() ? 1 : 0.4 }}>
           Read My Fortune
         </button>
@@ -684,7 +633,7 @@ function BuilderGate({ onStart }) {
   const [answers, setAnswers] = useState({})
   const [textVal, setTextVal] = useState('')
 
-  const qs = type ? BUILDER_QS[type] : []
+  const qs       = type ? BUILDER_QS[type] : []
   const currentQ = qs[qStep]
 
   function selectType(t) { setType(t); setStep('questions'); setQStep(0); setAnswers({}); setTextVal('') }
@@ -695,15 +644,11 @@ function BuilderGate({ onStart }) {
     if (!val) return
     const newAnswers = { ...answers, [currentQ.id]: val }
     setAnswers(newAnswers); setTextVal('')
-    if (qStep < qs.length - 1) {
-      setQStep(qStep + 1)
-    } else {
-      let msg = ''
-      if (type === 'content') {
-        msg = 'Build a Content System blueprint for:\n- Niche: ' + newAnswers.niche + '\n- Platform: ' + newAnswers.platform + '\n- Goal: ' + newAnswers.goal
-      } else {
-        msg = 'Build an App Spec blueprint for:\n- App: ' + newAnswers.idea + '\n- Target user: ' + newAnswers.user + '\n- Stack: ' + newAnswers.stack
-      }
+    if (qStep < qs.length - 1) { setQStep(qStep + 1) }
+    else {
+      const msg = type === 'content'
+        ? 'Build a Content System blueprint for:\n- Niche: ' + newAnswers.niche + '\n- Platform: ' + newAnswers.platform + '\n- Goal: ' + newAnswers.goal
+        : 'Build an App Spec blueprint for:\n- App: ' + newAnswers.idea + '\n- Target user: ' + newAnswers.user + '\n- Stack: ' + newAnswers.stack
       onStart(msg)
     }
   }
@@ -752,9 +697,7 @@ function BuilderGate({ onStart }) {
           <p className="text-sm font-bold vs-text mt-0.5">{currentQ?.q}</p>
           {currentQ?.hint && <p className="text-[10px] vs-text-sub mt-0.5">{currentQ.hint}</p>}
         </div>
-        <button onClick={() => setStep('gate')} className="vs-text-sub p-1.5 hover:vs-text rounded-lg">
-          <X size={14} />
-        </button>
+        <button onClick={() => setStep('gate')} className="vs-text-sub p-1.5 hover:vs-text rounded-lg"><X size={14} /></button>
       </div>
       <div className="p-3">
         {currentQ?.type === 'choice' ? (
@@ -766,23 +709,16 @@ function BuilderGate({ onStart }) {
                   background: answers[currentQ.id] === opt ? 'var(--vs-accent)' : 'var(--vs-bg)',
                   color: answers[currentQ.id] === opt ? '#fff' : 'var(--vs-text)',
                   borderColor: answers[currentQ.id] === opt ? 'var(--vs-accent)' : undefined,
-                }}>
-                {opt}
-              </button>
+                }}>{opt}</button>
             ))}
           </div>
         ) : (
-          <textarea
-            value={textVal}
-            onChange={e => setTextVal(e.target.value)}
-            placeholder={currentQ?.ph}
-            rows={2}
+          <textarea value={textVal} onChange={e => setTextVal(e.target.value)}
+            placeholder={currentQ?.ph} rows={2}
             className="w-full py-2.5 px-3 rounded-xl text-sm vs-text outline-none resize-none"
-            style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }}
-          />
+            style={{ background: 'var(--vs-bg)', border: '1px solid var(--vs-border)' }} />
         )}
-        <button
-          onClick={nextStep}
+        <button onClick={nextStep}
           disabled={currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()}
           className="mt-2.5 w-full py-2 rounded-xl text-xs font-bold transition-all"
           style={{ background: 'var(--vs-accent)', color: '#fff', opacity: (currentQ?.type === 'choice' ? !answers[currentQ.id] : !textVal.trim()) ? 0.4 : 1 }}>
@@ -798,32 +734,36 @@ function BuilderGate({ onStart }) {
 function ChatPageInner() {
   const searchParams = useSearchParams()
 
-  const [tab, setTab] = useState('fortune')
-  const [messages, setMessages] = useState({
+  const [tab, setTab]             = useState('fortune')
+  const [messages, setMessages]   = useState({
     fortune: [makeWelcome('fortune')],
     story:   [makeWelcome('story')],
     builder: [makeWelcome('builder')],
   })
-  const [sessionIds, setSessionIds] = useState({ fortune: null, story: null, builder: null })
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [balance, setBalance] = useState(null)
+  const [sessionIds, setSessionIds]   = useState({ fortune: null, story: null, builder: null })
+  const [input, setInput]             = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [balance, setBalance]         = useState(null)
 
-  const [builderModel, setBuilderModel] = useState('gemini-fast')
-  const [showSettings, setShowSettings] = useState(false)
-  const [libSelected, setLibSelected] = useState(null)
+  const [builderModel, setBuilderModel]   = useState('gemini-fast')
+  const [showSettings, setShowSettings]   = useState(false)
+  const [libSelected, setLibSelected]     = useState(null)
 
-  const [userKey, setUserKey] = useState('')
-  const [showKeyPopup, setShowKeyPopup] = useState(false)
-  const [keyInput, setKeyInput] = useState('')
-  const [keyReason, setKeyReason] = useState('')
+  // ─── Dynamic model list (Builder tab) ─────────────────────────────────────
+  const [liveModels, setLiveModels]       = useState(null)      // null = belum fetch
+  const [modelsLoading, setModelsLoading] = useState(false)
+
+  const [userKey, setUserKey]             = useState('')
+  const [showKeyPopup, setShowKeyPopup]   = useState(false)
+  const [keyInput, setKeyInput]           = useState('')
+  const [keyReason, setKeyReason]         = useState('')
   const [pendingAction, setPendingAction] = useState(null)
   const [showPollenPopup, setShowPollenPopup] = useState(false)
 
   const [savedIndicator, setSavedIndicator] = useState({ fortune: false, story: false, builder: false })
-  const [copiedId, setCopiedId] = useState(null)
-  const [confirmClear, setConfirmClear] = useState(false)
-  const [errorPopup, setErrorPopup] = useState(null)
+  const [copiedId, setCopiedId]             = useState(null)
+  const [confirmClear, setConfirmClear]     = useState(false)
+  const [errorPopup, setErrorPopup]         = useState(null)
 
   const endRef   = useRef(null)
   const inputRef = useRef(null)
@@ -836,9 +776,23 @@ function ChatPageInner() {
     if (sessionId) loadFromHistory(parseInt(sessionId))
     const t = searchParams.get('tab')
     if (t && ['fortune', 'story', 'builder', 'library'].includes(t)) setTab(t)
+    // Fetch model list saat mount
+    loadLiveModels()
   }, [])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading, tab])
+
+  // Fetch model list dari Pollinations + cache 10 menit
+  async function loadLiveModels() {
+    setModelsLoading(true)
+    const raw = await fetchTextModels()
+    if (raw) setLiveModels(sortModels(raw).map(toDropdown))
+    setModelsLoading(false)
+  }
+
+  // Model list yang dipakai di Builder dropdown
+  // Prioritas: live dari API → fallback hardcode
+  const activeBuilderModels = liveModels || BUILDER_MODELS_FALLBACK
 
   async function fetchBalance(key) {
     try {
@@ -885,11 +839,9 @@ function ChatPageInner() {
   }
 
   function needsKey() {
-    if (tab === 'builder') {
-      const m = BUILDER_MODELS.find(m => m.id === builderModel)
-      return m && !m.free
-    }
-    return false
+    if (tab !== 'builder') return false
+    const m = activeBuilderModels.find(m => m.id === builderModel)
+    return m ? !m.free : false
   }
 
   async function handleSend(e) {
@@ -1009,19 +961,13 @@ function ChatPageInner() {
               <button onClick={() => setShowPollenPopup(true)} className="vs-text-sub hover:underline">
                 {balance > 0 ? balance.toFixed(3) + ' pollen' : 'pollen depleted'}
               </button>
-            ) : (
-              <span className="vs-text-sub">Loading...</span>
-            )}
+            ) : <span className="vs-text-sub">Loading...</span>}
             {userKey ? (
               <button onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
-                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
-                key active
-              </button>
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">key active</button>
             ) : (
               <button onClick={() => openKeyPopup('add')}
-                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">
-                add key
-              </button>
+                className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">add key</button>
             )}
           </div>
           <a href="/ai/create"
@@ -1041,42 +987,76 @@ function ChatPageInner() {
                   backgroundColor: tab === id ? 'var(--vs-accent)' : 'transparent',
                   color: tab === id ? '#fff' : 'var(--vs-text-sub)',
                 }}>
-                {Icon && <Icon size={11} />}
-                {cfg.label}
+                {Icon && <Icon size={11} />}{cfg.label}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Builder settings bar */}
+      {/* Builder settings bar — model picker dengan live models */}
       {tab === 'builder' && (
         <div className="px-4 pb-2 flex-shrink-0">
-          <button onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl vs-card border vs-border text-xs vs-text w-full">
-            <Settings size={12} className="vs-text-sub" />
-            <span className="flex-1 text-left">{BUILDER_MODELS.find(m => m.id === builderModel)?.label || builderModel}</span>
-            {!BUILDER_MODELS.find(m => m.id === builderModel)?.free && <span className="text-[10px] vs-text-sub">key</span>}
-            <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowSettings(!showSettings)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl vs-card border vs-border text-xs vs-text flex-1">
+              <Settings size={12} className="vs-text-sub" />
+              <span className="flex-1 text-left">
+                {activeBuilderModels.find(m => m.id === builderModel)?.label || builderModel}
+              </span>
+              {!activeBuilderModels.find(m => m.id === builderModel)?.free && (
+                <span className="text-[10px] vs-text-sub">key</span>
+              )}
+              <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+            </button>
+            {/* Tombol refresh model list */}
+            <button onClick={loadLiveModels} disabled={modelsLoading}
+              className="p-1.5 rounded-xl vs-card border vs-border vs-text-sub"
+              title="Refresh model list">
+              <RefreshCw size={14} className={modelsLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
           {showSettings && (
             <div className="mt-1 vs-card border vs-border rounded-xl max-h-48 overflow-y-auto">
-              <div className="p-2 border-b vs-border">
-                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">Model &middot; free &middot; key required</p>
+              <div className="p-2 border-b vs-border flex items-center justify-between">
+                <p className="text-[9px] vs-text-sub uppercase tracking-wider px-2">
+                  Model &middot; free &middot; key required
+                </p>
+                {liveModels && (
+                  <p className="text-[9px] vs-text-sub px-2">
+                    {liveModels.length} models &middot; live
+                  </p>
+                )}
               </div>
-              {BUILDER_MODELS.map(m => (
-                <button key={m.id} onClick={() => {
-                  if (!m.free && !hasKey()) { openKeyPopup('builder_model', () => { setBuilderModel(m.id); setShowSettings(false) }); return }
-                  setBuilderModel(m.id); setShowSettings(false)
-                }} className="w-full flex items-center gap-2 px-3 py-2 text-xs vs-hover border-b vs-border last:border-b-0"
+
+              {modelsLoading ? (
+                <div className="flex items-center justify-center py-4 gap-2">
+                  <Loader2 size={14} className="animate-spin vs-text-sub" />
+                  <span className="text-xs vs-text-sub">Loading models...</span>
+                </div>
+              ) : (
+                activeBuilderModels.map(m => (
+                  <button key={m.id} onClick={() => {
+                    if (!m.free && !hasKey()) {
+                      openKeyPopup('builder_model', () => { setBuilderModel(m.id); setShowSettings(false) })
+                      return
+                    }
+                    setBuilderModel(m.id); setShowSettings(false)
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs vs-hover border-b vs-border last:border-b-0"
                   style={{ color: builderModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                  <span className="flex-1 text-left">{m.label}</span>
-                  <span className="vs-text-sub text-[10px]">{m.free ? 'free' : 'key'}</span>
-                </button>
-              ))}
+                    <span className="flex-1 text-left">{m.label}</span>
+                    <span className="vs-text-sub text-[10px]">{m.free ? 'free' : 'key'}</span>
+                  </button>
+                ))
+              )}
             </div>
           )}
-          <p className="text-[10px] vs-text-sub mt-1.5">free &middot; no key needed &nbsp;|&nbsp; key &middot; your own API key</p>
+          <p className="text-[10px] vs-text-sub mt-1.5">
+            free &middot; no key needed &nbsp;|&nbsp; key &middot; your own API key
+            {liveModels && <span className="ml-2 opacity-60">&middot; auto-updated</span>}
+          </p>
         </div>
       )}
 
@@ -1084,14 +1064,8 @@ function ChatPageInner() {
       {tab !== 'library' && (
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 py-2 pb-4">
-
-            {tab === 'fortune' && !fortuneHasUserMsg && (
-              <FortuneGate onStart={handleFortuneStart} />
-            )}
-
-            {tab === 'builder' && !builderHasUserMsg && (
-              <BuilderGate onStart={handleBuilderStart} />
-            )}
+            {tab === 'fortune' && !fortuneHasUserMsg && <FortuneGate onStart={handleFortuneStart} />}
+            {tab === 'builder' && !builderHasUserMsg && <BuilderGate onStart={handleBuilderStart} />}
 
             {currentMessages.map((msg, i) => (
               <div key={i} className={'flex px-3 ' + (msg.role === 'user' ? 'justify-end' : 'justify-start')}>
@@ -1253,9 +1227,7 @@ function ChatPageInner() {
                   Resets every hour. Add your own key to skip the wait and unlock premium models.
                 </p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('add'); setShowKeyPopup(true) }}
-                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
-                  Add API Key
-                </button>
+                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Add API Key</button>
                 <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">
                   Got it, I will wait
                 </button>
@@ -1269,9 +1241,7 @@ function ChatPageInner() {
                 </div>
                 <p className="text-[10px] vs-text-sub mb-4">Key active: {userKey.slice(0, 8)}...</p>
                 <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
-                  className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">
-                  Manage Key
-                </button>
+                  className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Manage Key</button>
                 <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">Close</button>
               </>
             )}
@@ -1300,9 +1270,7 @@ function ChatPageInner() {
             {(!userKey || keyReason !== 'manage') && (
               <button onClick={handleKeySave} disabled={!keyInput.trim()}
                 className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
-                style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>
-                Save Key
-              </button>
+                style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>Save Key</button>
             )}
             <div className="text-center mb-3">
               <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
@@ -1317,9 +1285,7 @@ function ChatPageInner() {
               </div>
             )}
             <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}
-              className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">
-              Close
-            </button>
+              className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">Close</button>
           </div>
         </div>
       )}
