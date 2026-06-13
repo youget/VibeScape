@@ -6,7 +6,7 @@ import { Send, Settings, Copy, Heart, Trash2, BookOpen, ChevronDown,
   ArrowRight, Monitor, Code2, RefreshCw } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveSession, updateSession, getSession, toggleSessionFav } from '../../lib/chatdb'
-import { fetchTextModels, sortModels, toDropdown } from '../../lib/pollinationsModels'
+import { fetchTextModels, sortModels, toDropdown, clearModelsCache } from '../../lib/pollinationsModels'
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 
@@ -750,7 +750,7 @@ function ChatPageInner() {
   const [libSelected, setLibSelected]     = useState(null)
 
   // ─── Dynamic model list (Builder tab) ─────────────────────────────────────
-  const [liveModels, setLiveModels]       = useState(null)      // null = belum fetch
+  const [liveModels, setLiveModels]       = useState(null)
   const [modelsLoading, setModelsLoading] = useState(false)
 
   const [userKey, setUserKey]             = useState('')
@@ -776,22 +776,19 @@ function ChatPageInner() {
     if (sessionId) loadFromHistory(parseInt(sessionId))
     const t = searchParams.get('tab')
     if (t && ['fortune', 'story', 'builder', 'library'].includes(t)) setTab(t)
-    // Fetch model list saat mount
     loadLiveModels()
   }, [])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading, tab])
 
-  // Fetch model list dari Pollinations + cache 10 menit
-  async function loadLiveModels() {
+  async function loadLiveModels(forceRefresh = false) {
+    if (forceRefresh) clearModelsCache()
     setModelsLoading(true)
     const raw = await fetchTextModels()
     if (raw) setLiveModels(sortModels(raw).map(toDropdown))
     setModelsLoading(false)
   }
 
-  // Model list yang dipakai di Builder dropdown
-  // Prioritas: live dari API → fallback hardcode
   const activeBuilderModels = liveModels || BUILDER_MODELS_FALLBACK
 
   async function fetchBalance(key) {
@@ -994,7 +991,7 @@ function ChatPageInner() {
         </div>
       </div>
 
-      {/* Builder settings bar — model picker dengan live models */}
+      {/* Builder settings bar */}
       {tab === 'builder' && (
         <div className="px-4 pb-2 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -1009,8 +1006,8 @@ function ChatPageInner() {
               )}
               <ChevronDown size={12} className="vs-text-sub" style={{ transform: showSettings ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
             </button>
-            {/* Tombol refresh model list */}
-            <button onClick={loadLiveModels} disabled={modelsLoading}
+            {/* refresh model list button */}
+            <button onClick={() => loadLiveModels(true)} disabled={modelsLoading}
               className="p-1.5 rounded-xl vs-card border vs-border vs-text-sub"
               title="Refresh model list">
               <RefreshCw size={14} className={modelsLoading ? 'animate-spin' : ''} />
