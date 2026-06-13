@@ -5,15 +5,13 @@ import { Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink,
   Mic, Wand2, Check } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveImage, getRecentImages, compressImage, compressImageToSize, toggleFavorite, clearRecentOnly } from '../../lib/imagedb'
-import { fetchImageModels, fetchAudioModels, fetchVideoModels, sortModels, toDropdown } from '../../lib/pollinationsModels'
+import { fetchImageModels, fetchAudioModels, fetchVideoModels, sortModels, toDropdown, clearModelsCache } from '../../lib/pollinationsModels'
 
 const USER_KEY_STORAGE = 'vs-user-polli-key'
 
-// ─── Fallback hardcode (dipakai kalau fetch gagal) ────────────────────────────
-
 const IMAGE_MODELS_FALLBACK = [
   { id: 'flux',           label: 'Flux Schnell',     free: true  },
-  { id: 'zimage',         label: 'Z-Image Turbo',    free: false },
+  { id: 'zimage',         label: 'Z-Image Turbo',    free: true  },
   { id: 'klein',          label: 'FLUX.2 Klein 4B',  free: false },
   { id: 'gptimage',       label: 'GPT Image 1 Mini', free: false },
   { id: 'qwen-image',     label: 'Qwen Image Plus',  free: false },
@@ -256,21 +254,24 @@ export default function CreatePage() {
 
   // ─── Load model lists ────────────────────────────────────────────────────
 
-  async function loadImageModels() {
+  async function loadImageModels(forceRefresh = false) {
+    if (forceRefresh) clearModelsCache()
     setImgModelsLoading(true)
     const raw = await fetchImageModels()
     if (raw) setLiveImageModels(sortModels(raw).map(toDropdown))
     setImgModelsLoading(false)
   }
 
-  async function loadAudioModels() {
+  async function loadAudioModels(forceRefresh = false) {
+    if (forceRefresh) clearModelsCache()
     setAudioModelsLoading(true)
     const raw = await fetchAudioModels()
     if (raw) setLiveAudioModels(sortModels(raw).map(toDropdown))
     setAudioModelsLoading(false)
   }
 
-  async function loadVideoModels() {
+  async function loadVideoModels(forceRefresh = false) {
+    if (forceRefresh) clearModelsCache()
     setVideoModelsLoading(true)
     const raw = await fetchVideoModels()
     if (raw) setLiveVideoModels(sortModels(raw).map(toDropdown))
@@ -337,12 +338,17 @@ export default function CreatePage() {
             { role: 'system', content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt — no preamble, no explanation, nothing else.' },
             { role: 'user', content: promptToEnhance }
           ],
-          model: 'gemini-fast'
+          model: 'nova-fast',
         })
       })
+      if (!res.ok) { setEnhancedPrompt(''); setEnhanceLoading(false); return }
       const data = await res.json()
-      setEnhancedPrompt(data.result?.trim() || '')
-    } catch { setEnhancedPrompt('') }
+      const result = data.result?.trim() || data.text?.trim() || ''
+      setEnhancedPrompt(result)
+    } catch (err) {
+      console.error('Enhance error:', err)
+      setEnhancedPrompt('')
+    }
     setEnhanceLoading(false)
   }
 
@@ -543,7 +549,7 @@ export default function CreatePage() {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-xs font-semibold vs-text">Model</p>
-              <button onClick={loadImageModels} disabled={imgModelsLoading}
+              <button onClick={() => loadImageModels(true)} disabled={imgModelsLoading}
                 className="p-1 rounded-lg vs-text-sub vs-hover" title="Refresh model list">
                 <RefreshCw size={12} className={imgModelsLoading ? 'animate-spin' : ''} />
               </button>
@@ -719,7 +725,7 @@ export default function CreatePage() {
                 loading={audioModelsLoading}
                 selected={audioModel}
                 onSelect={m => setAudioModel(m.id)}
-                onRefresh={loadAudioModels}
+                onRefresh={() => loadAudioModels(true)}
               />
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Voice</p>
@@ -751,7 +757,7 @@ export default function CreatePage() {
                 loading={audioModelsLoading}
                 selected={musicModel}
                 onSelect={m => setMusicModel(m.id)}
-                onRefresh={loadAudioModels}
+                onRefresh={() => loadAudioModels(true)}
               />
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Duration: {voiceDuration}s</p>
@@ -844,7 +850,7 @@ export default function CreatePage() {
             loading={videoModelsLoading}
             selected={videoModel}
             onSelect={m => setVideoModel(m.id)}
-            onRefresh={loadVideoModels}
+            onRefresh={() => loadVideoModels(true)}
           />
 
           {/* Size */}
