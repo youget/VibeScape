@@ -1,75 +1,55 @@
-const CACHE_DURATION = 10 * 60 * 1000 // 10 menit
+'use client'
+
+const CACHE_MS = 10 * 60 * 1000
 
 function getCache(key) {
   try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return null
-    const { data, ts } = JSON.parse(raw)
-    if (Date.now() - ts > CACHE_DURATION) return null
-    return data
+    const r = localStorage.getItem(key)
+    if (!r) return null
+    const { data, ts } = JSON.parse(r)
+    return Date.now() - ts < CACHE_MS ? data : null
   } catch { return null }
 }
 
 function setCache(key, data) {
-  try {
-    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
-  } catch {}
-}
-
-async function fetchAllModels() {
-  const key = 'vs-polli-all-models'
-  const cached = getCache(key)
-  if (cached) return cached
-  try {
-    const res = await fetch('https://gen.pollinations.ai/v1/models')
-    if (!res.ok) return null
-    const data = await res.json()
-    const list = Array.isArray(data) ? data : (data.data || [])
-    if (!list.length) return null
-    setCache(key, list)
-    return list
-  } catch { return null }
-}
-
-export async function fetchTextModels() {
-  const all = await fetchAllModels()
-  if (!all) return null
-  return all.filter(m => m.type === 'text' || m.type === 'chat' || (!m.type && !m.id?.includes('image') && !m.id?.includes('tts') && !m.id?.includes('video')))
-}
-
-export async function fetchImageModels() {
-  const all = await fetchAllModels()
-  if (!all) return null
-  return all.filter(m => m.type === 'image')
-}
-
-export async function fetchAudioModels() {
-  const all = await fetchAllModels()
-  if (!all) return null
-  return all.filter(m => m.type === 'audio' || m.type === 'tts')
-}
-
-export async function fetchVideoModels() {
-  const all = await fetchAllModels()
-  if (!all) return null
-  return all.filter(m => m.type === 'video')
-}
-
-export function sortModels(models) {
-  if (!Array.isArray(models)) return []
-  return [...models].sort((a, b) => (a.paid_only === b.paid_only ? 0 : a.paid_only ? 1 : -1))
-}
-
-export function toDropdown(m) {
-  return {
-    id:    m.id   || m.name || '',
-    label: m.description || m.name || m.id || '',
-    free:  !m.paid_only,
-  }
+  try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })) } catch {}
 }
 
 export function clearModelsCache() {
   try {
-    localStorage.removeItem('vs-polli-all-models')
+    ['vs-m-text','vs-m-image','vs-m-audio','vs-m-video'].forEach(k => localStorage.removeItem(k))
   } catch {}
+}
+
+async function doFetch(url, cacheKey, force) {
+  if (!force) {
+    const cached = getCache(cacheKey)
+    if (cached) return cached
+  }
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const json = await res.json()
+    const list = Array.isArray(json) ? json : (json.data || json.models || [])
+    if (list.length) setCache(cacheKey, list)
+    return list.length ? list : null
+  } catch { return null }
+}
+
+export const fetchTextModels  = (force) => doFetch('https://text.pollinations.ai/models',  'vs-m-text',  force)
+export const fetchImageModels = (force) => doFetch('https://image.pollinations.ai/models', 'vs-m-image', force)
+export const fetchAudioModels = (force) => doFetch('https://audio.pollinations.ai/models', 'vs-m-audio', force)
+export const fetchVideoModels = (force) => doFetch('https://video.pollinations.ai/models', 'vs-m-video', force)
+
+export function sortModels(list) {
+  if (!Array.isArray(list)) return []
+  return [...list].sort((a, b) => (a.paid_only === b.paid_only ? 0 : a.paid_only ? 1 : -1))
+}
+
+export function toDropdown(m) {
+  return {
+    id:    m.name || m.id || '',
+    label: m.description || m.name || m.id || '',
+    free:  m.paid_only === false || m.paid_only === undefined ? true : false,
+  }
 }
