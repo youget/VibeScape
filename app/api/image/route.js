@@ -12,7 +12,7 @@ export async function POST(request) {
     width: String(width || 1024),
     height: String(height || 1024),
     seed: String(seed || Math.floor(Math.random() * 999999)),
-    safe: 'true',
+    safe: 'false',
     nologo: 'true',
   })
   if (enhance) params.set('enhance', 'true')
