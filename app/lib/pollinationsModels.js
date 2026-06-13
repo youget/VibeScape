@@ -16,37 +16,60 @@ function setCache(key, data) {
   } catch {}
 }
 
-async function doFetch(url, cacheKey) {
-  const cached = getCache(cacheKey)
+async function fetchAllModels() {
+  const key = 'vs-polli-all-models'
+  const cached = getCache(key)
   if (cached) return cached
   try {
-    const res = await fetch(url)
+    const res = await fetch('https://gen.pollinations.ai/v1/models')
     if (!res.ok) return null
     const data = await res.json()
-    const list = Array.isArray(data) ? data : (data.models || data.data || [])
-    if (list.length) setCache(cacheKey, list)
-    return list.length ? list : null
+    const list = Array.isArray(data) ? data : (data.data || [])
+    if (!list.length) return null
+    setCache(key, list)
+    return list
   } catch { return null }
 }
 
-export const fetchTextModels  = () => doFetch('https://text.pollinations.ai/models',  'vs-models-text')
-export const fetchImageModels = () => doFetch('https://image.pollinations.ai/models', 'vs-models-image')
-export const fetchAudioModels = () => doFetch('https://audio.pollinations.ai/models', 'vs-models-audio')
-export const fetchVideoModels = () => doFetch('https://video.pollinations.ai/models', 'vs-models-video')
+export async function fetchTextModels() {
+  const all = await fetchAllModels()
+  if (!all) return null
+  return all.filter(m => m.type === 'text' || m.type === 'chat' || (!m.type && !m.id?.includes('image') && !m.id?.includes('tts') && !m.id?.includes('video')))
+}
 
-// Sort: free first, paid last
+export async function fetchImageModels() {
+  const all = await fetchAllModels()
+  if (!all) return null
+  return all.filter(m => m.type === 'image')
+}
+
+export async function fetchAudioModels() {
+  const all = await fetchAllModels()
+  if (!all) return null
+  return all.filter(m => m.type === 'audio' || m.type === 'tts')
+}
+
+export async function fetchVideoModels() {
+  const all = await fetchAllModels()
+  if (!all) return null
+  return all.filter(m => m.type === 'video')
+}
+
 export function sortModels(models) {
   if (!Array.isArray(models)) return []
   return [...models].sort((a, b) => (a.paid_only === b.paid_only ? 0 : a.paid_only ? 1 : -1))
 }
 
-// Normalize API response → format yang dipakai komponen
-// API: { name, description, paid_only }
-// Output: { id, label, free }
 export function toDropdown(m) {
   return {
-    id:    m.name   || m.id    || '',
+    id:    m.id   || m.name || '',
     label: m.description || m.name || m.id || '',
     free:  !m.paid_only,
   }
+}
+
+export function clearModelsCache() {
+  try {
+    localStorage.removeItem('vs-polli-all-models')
+  } catch {}
 }
