@@ -2,41 +2,41 @@
 import { useState, useEffect } from 'react'
 import { Sparkles, Shuffle, Download, Loader2, ChevronDown, ExternalLink,
   RefreshCw, Play, Film, ImageIcon, X, Heart, Copy, Trash2, ArrowRight,
-  Mic, Wand2, Check } from 'lucide-react'
+  Mic, Wand2, Check, ImagePlus } from 'lucide-react'
 import { toast } from '../../components/Toast'
 import { saveImage, getRecentImages, compressImage, compressImageToSize, toggleFavorite, clearRecentOnly } from '../../lib/imagedb'
 import { fetchImageModels, fetchAudioModels, fetchVideoModels, sortModels, toDropdown, clearModelsCache } from '../../lib/pollinationsModels'
 
-const USER_KEY_STORAGE = 'vs-user-polli-key'
+const USER_KEY_STORAGE   = 'vs-user-polli-key'
+const IMAGE_FREE_IDS     = ['flux', 'zimage']
+const SUPPORTS_REFERENCE = ['flux', 'kontext', 'gptimage', 'gptimage-large', 'wan-image', 'klein']
 
 const IMAGE_MODELS_FALLBACK = [
-  { id: 'flux',           label: 'Flux Schnell',     free: true  },
-  { id: 'zimage',         label: 'Z-Image Turbo',    free: true  },
-  { id: 'klein',          label: 'FLUX.2 Klein 4B',  free: false },
-  { id: 'gptimage',       label: 'GPT Image 1 Mini', free: false },
-  { id: 'qwen-image',     label: 'Qwen Image Plus',  free: false },
-  { id: 'wan-image',      label: 'Wan 2.7 Image',    free: false },
-  { id: 'kontext',        label: 'FLUX.1 Kontext',   free: false },
-  { id: 'gptimage-large', label: 'GPT Image 1.5',    free: false },
+  { id: 'flux',           label: 'Flux Schnell',     paidOnly: false },
+  { id: 'zimage',         label: 'Z-Image Turbo',    paidOnly: false },
+  { id: 'klein',          label: 'FLUX.2 Klein 4B',  paidOnly: false },
+  { id: 'gptimage',       label: 'GPT Image 1 Mini', paidOnly: false },
+  { id: 'qwen-image',     label: 'Qwen Image Plus',  paidOnly: false },
+  { id: 'wan-image',      label: 'Wan 2.7 Image',    paidOnly: false },
+  { id: 'kontext',        label: 'FLUX.1 Kontext',   paidOnly: false },
+  { id: 'gptimage-large', label: 'GPT Image 1.5',    paidOnly: true  },
 ]
 
 const AUDIO_MODELS_FALLBACK = [
-  { id: 'tts-1',    label: 'TTS-1 (OpenAI)',    free: false },
-  { id: 'acestep',  label: 'ACEStep Music',     free: false },
+  { id: 'tts-1',   label: 'TTS-1 (OpenAI)',  paidOnly: false },
+  { id: 'acestep', label: 'ACEStep Music',   paidOnly: false },
 ]
 
 const VIDEO_MODELS_FALLBACK = [
-  { id: 'ltx-2', label: 'LTX-2.3 Alpha', free: false },
+  { id: 'ltx-2', label: 'LTX-2.3 Alpha', paidOnly: false },
 ]
-
-// ─── Static data ──────────────────────────────────────────────────────────────
 
 const STYLES = [
   { id: 'none',       label: 'None',       suffix: '' },
-  { id: 'realistic',  label: 'Realistic',  suffix: ', photorealistic, highly detailed, 8K resolution' },
-  { id: '3d',         label: '3D Render',  suffix: ', 3D render, octane render, cinema 4D, highly detailed' },
-  { id: 'cartoon',    label: 'Cartoon',    suffix: ', cartoon style, vibrant colors, playful, fun' },
-  { id: 'anime',      label: 'Anime',      suffix: ', anime style, manga art, Studio Ghibli inspired' },
+  { id: 'realistic',  label: 'Realistic',  suffix: ', photorealistic, highly detailed, 8K' },
+  { id: '3d',         label: '3D Render',  suffix: ', 3D render, octane render, cinema 4D' },
+  { id: 'cartoon',    label: 'Cartoon',    suffix: ', cartoon style, vibrant colors, playful' },
+  { id: 'anime',      label: 'Anime',      suffix: ', anime style, manga art, Studio Ghibli' },
   { id: 'pixel',      label: 'Pixel Art',  suffix: ', pixel art, 16-bit retro game style' },
   { id: 'watercolor', label: 'Watercolor', suffix: ', watercolor painting, soft colors, artistic' },
   { id: 'oil',        label: 'Oil Paint',  suffix: ', oil painting, classical art, rich textures' },
@@ -44,21 +44,21 @@ const STYLES = [
   { id: 'cyberpunk',  label: 'Cyberpunk',  suffix: ', cyberpunk style, neon lights, futuristic city' },
   { id: 'fantasy',    label: 'Fantasy',    suffix: ', fantasy art, magical, ethereal, mystical lighting' },
   { id: 'horror',     label: 'Horror',     suffix: ', dark horror style, creepy, eerie atmosphere' },
-  { id: 'vintage',    label: 'Vintage',    suffix: ', vintage photography, retro, film grain, 70s aesthetic' },
+  { id: 'vintage',    label: 'Vintage',    suffix: ', vintage photography, retro, film grain, 70s' },
   { id: 'minimal',    label: 'Minimal',    suffix: ', minimalist, clean lines, simple, modern design' },
-  { id: 'cinematic',  label: 'Cinematic',  suffix: ', cinematic shot, movie scene, dramatic lighting' },
-  { id: 'popart',     label: 'Pop Art',    suffix: ', pop art style, Andy Warhol, bold colors, graphic' },
+  { id: 'cinematic',  label: 'Cinematic',  suffix: ', cinematic shot, dramatic lighting, movie scene' },
+  { id: 'popart',     label: 'Pop Art',    suffix: ', pop art style, Andy Warhol, bold colors' },
   { id: 'sticker',    label: 'Sticker',    suffix: ', sticker design, die-cut, white border, cute' },
   { id: 'logo',       label: 'Logo',       suffix: ', logo design, professional, vector style, clean' },
   { id: 'isometric',  label: 'Isometric',  suffix: ', isometric 3D, game asset, clean, detailed' },
-  { id: 'neon',       label: 'Neon Glow',  suffix: ', neon glow effect, dark background, vibrant neon colors' },
+  { id: 'neon',       label: 'Neon Glow',  suffix: ', neon glow effect, dark background, vibrant neon' },
 ]
 
 const SIZES = [
   { label: '1:1',  w: 1024, h: 1024 },
-  { label: '16:9', w: 1344, h: 768 },
+  { label: '16:9', w: 1344, h: 768  },
   { label: '9:16', w: 768,  h: 1344 },
-  { label: '4:3',  w: 1152, h: 896 },
+  { label: '4:3',  w: 1152, h: 896  },
   { label: '3:4',  w: 896,  h: 1152 },
 ]
 
@@ -90,18 +90,18 @@ const LOADING_MSGS = [
 ]
 
 const ERR = {
-  quota_exceeded: { emoji: '😭', title: 'Pollen depleted',         desc: "Server pollen is out. Add your own API key to keep generating." },
-  invalid_key:    { emoji: '🫠', title: "That key ain't it",        desc: 'Double-check your API key and try again.' },
-  rate_limit:     { emoji: '⏳', title: 'Rate limit hit',           desc: 'Too many requests. Wait a moment and try again.' },
-  forbidden:      { emoji: '🚫', title: 'Access denied',            desc: "Your key might not have access to this model." },
-  server_error:   { emoji: '💤', title: 'Server took a nap',        desc: 'Something went wrong on our end. Try again.' },
-  api_error:      { emoji: '🫣', title: 'Something went sideways',  desc: 'Give it another shot.' },
+  quota_exceeded: { title: 'Pollen depleted',        desc: 'Add your own API key to keep generating.' },
+  invalid_key:    { title: "That key ain't it",       desc: 'Double-check your API key and try again.' },
+  rate_limit:     { title: 'Rate limit hit',          desc: 'Too many requests. Wait a moment and try again.' },
+  forbidden:      { title: 'Access denied',           desc: "Your key might not have access to this model." },
+  server_error:   { title: 'Server took a nap',       desc: 'Something went wrong. Try again.' },
+  api_error:      { title: 'Something went sideways', desc: 'Give it another shot.' },
 }
 
 function getUserKey()   { try { return localStorage.getItem(USER_KEY_STORAGE) || '' } catch { return '' } }
 function saveUserKey(k) { try { localStorage.setItem(USER_KEY_STORAGE, k) } catch {} }
 function clearUserKey() { try { localStorage.removeItem(USER_KEY_STORAGE) } catch {} }
-function randomLoadingMsg() { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
+function randomMsg()    { return LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)] }
 
 const tabs = [
   { id: 'image', label: 'Image', icon: ImageIcon },
@@ -109,75 +109,85 @@ const tabs = [
   { id: 'video', label: 'Video', icon: Film },
 ]
 
-// ─── Model dropdown helper component ─────────────────────────────────────────
+// ─── TierBadge ────────────────────────────────────────────────────────────────
 
-function ModelDropdown({ models, loading, selected, onSelect, onRefresh }) {
+function TierBadge({ tier }) {
+  const cfg = {
+    free: { label: 'free', bg: '#22c55e22', color: '#22c55e' },
+    key:  { label: 'key',  bg: 'var(--vs-accent)22', color: 'var(--vs-accent)' },
+    paid: { label: 'paid', bg: '#a855f722', color: '#a855f7' },
+  }[tier] || { label: 'key', bg: 'var(--vs-accent)22', color: 'var(--vs-accent)' }
+  return (
+    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+      style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+      {cfg.label}
+    </span>
+  )
+}
+
+// ─── ModelDropdown ────────────────────────────────────────────────────────────
+
+function ModelDropdown({ models, loading, selected, freeIds, onSelect, onRefresh }) {
   const [open, setOpen] = useState(false)
   const current = models.find(m => m.id === selected) || models[0]
+  const getTier = (m) => m.paidOnly ? 'paid' : (freeIds || []).includes(m.id) ? 'free' : 'key'
 
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-2">
-        <p className="text-xs font-semibold vs-text flex-1">Model</p>
-        <button onClick={onRefresh} disabled={loading}
-          className="p-1 rounded-lg vs-text-sub vs-hover" title="Refresh model list">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs font-semibold vs-text">Model</p>
+        <button onClick={onRefresh} disabled={loading} className="p-1 rounded-lg vs-text-sub vs-hover">
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
       <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full mt-1.5">
-        <span className="flex-1 text-left">
-          {loading ? 'Loading...' : (current?.label || selected)}
-        </span>
-        <span className="vs-text-sub text-[10px]">{current?.free ? 'free' : 'key'}</span>
-        <ChevronDown size={14} className="vs-text-sub" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+        className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
+        <span className="flex-1 text-left">{loading ? 'Loading...' : (current?.label || selected)}</span>
+        {current && <TierBadge tier={getTier(current)} />}
+        <ChevronDown size={14} className="vs-text-sub shrink-0" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
       </button>
-
       {open && (
         <div className="vs-card border vs-border rounded-xl mt-1 max-h-56 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-4 gap-2">
-              <Loader2 size={14} className="animate-spin vs-text-sub" />
-              <span className="text-xs vs-text-sub">Loading models...</span>
-            </div>
-          ) : models.length === 0 ? (
-            <p className="text-xs vs-text-sub text-center py-4">No models available</p>
-          ) : (
-            models.map(m => (
-              <button key={m.id} onClick={() => { onSelect(m); setOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
-                style={{ color: selected === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                <span className="flex-1 text-left font-semibold">{m.label}</span>
-                <span className="vs-text-sub text-[10px]">{m.free ? 'free' : 'key'}</span>
-              </button>
-            ))
-          )}
+          {loading
+            ? <div className="flex items-center justify-center py-4 gap-2"><Loader2 size={14} className="animate-spin vs-text-sub" /><span className="text-xs vs-text-sub">Loading models...</span></div>
+            : models.map(m => (
+                <button key={m.id} onClick={() => { onSelect(m); setOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
+                  style={{ color: selected === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
+                  <span className="flex-1 text-left">{m.label}</span>
+                  <TierBadge tier={getTier(m)} />
+                </button>
+              ))
+          }
         </div>
       )}
       <p className="text-[10px] vs-text-sub mt-1.5">
-        free &middot; server key &nbsp;|&nbsp; key &middot; your own API key
-        {!loading && models.length > 0 && <span className="ml-2 opacity-60">&middot; auto-updated</span>}
+        <span style={{ color: '#22c55e' }}>free</span> no key &nbsp;&middot;&nbsp;
+        <span style={{ color: 'var(--vs-accent)' }}>key</span> free member &nbsp;&middot;&nbsp;
+        <span style={{ color: '#a855f7' }}>paid</span> subscriber
       </p>
     </div>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function CreatePage() {
-  const [tab, setTab]             = useState('image')
-  const [userKey, setUserKey]     = useState('')
-  const [balance, setBalance]     = useState(null)
+  const [tab, setTab]         = useState('image')
+  const [userKey, setUserKey] = useState('')
+  const [balance, setBalance] = useState(null)
+
   const [showKeyPopup, setShowKeyPopup]     = useState(false)
   const [keyInput, setKeyInput]             = useState('')
   const [keyReason, setKeyReason]           = useState('')
   const [pendingAction, setPendingAction]   = useState(null)
+  const [showPaidPopup, setShowPaidPopup]   = useState(false)
+  const [showPollenPopup, setShowPollenPopup] = useState(false)
   const [errorPopup, setErrorPopup]         = useState(null)
   const [readMoreText, setReadMoreText]     = useState(null)
   const [confirmClearRecent, setConfirmClearRecent] = useState(false)
-  const [showPollenPopup, setShowPollenPopup]       = useState(false)
 
-  // ─── Dynamic model lists ───────────────────────────────────────────────────
+  // Live model lists
   const [liveImageModels, setLiveImageModels] = useState(null)
   const [liveAudioModels, setLiveAudioModels] = useState(null)
   const [liveVideoModels, setLiveVideoModels] = useState(null)
@@ -185,7 +195,6 @@ export default function CreatePage() {
   const [audioModelsLoading, setAudioModelsLoading] = useState(false)
   const [videoModelsLoading, setVideoModelsLoading] = useState(false)
 
-  // Active model lists — live dari API atau fallback
   const activeImageModels = liveImageModels || IMAGE_MODELS_FALLBACK
   const activeAudioModels = liveAudioModels || AUDIO_MODELS_FALLBACK
   const activeVideoModels = liveVideoModels || VIDEO_MODELS_FALLBACK
@@ -193,7 +202,6 @@ export default function CreatePage() {
   // Image state
   const [imgPrompt, setImgPrompt]           = useState('')
   const [imgModel, setImgModel]             = useState('flux')
-  const [showModelPicker, setShowModelPicker] = useState(false)
   const [imgSize, setImgSize]               = useState(0)
   const [imgStyle, setImgStyle]             = useState('none')
   const [showStylePicker, setShowStylePicker] = useState(false)
@@ -203,77 +211,70 @@ export default function CreatePage() {
   const [loadingMsg, setLoadingMsg]         = useState('')
   const [recent, setRecent]                 = useState([])
   const [isFav, setIsFav]                   = useState(false)
+  const [imgRefBase64, setImgRefBase64]     = useState(null)
+  const [imgRefPreview, setImgRefPreview]   = useState(null)
 
-  // Enhance popup state
-  const [showEnhancePopup, setShowEnhancePopup]           = useState(false)
-  const [enhancedPrompt, setEnhancedPrompt]               = useState('')
-  const [enhanceLoading, setEnhanceLoading]               = useState(false)
-  const [originalPromptForEnhance, setOriginalPromptForEnhance] = useState('')
+  // Enhance
+  const [showEnhance, setShowEnhance]           = useState(false)
+  const [enhancedPrompt, setEnhancedPrompt]     = useState('')
+  const [enhanceLoading, setEnhanceLoading]     = useState(false)
+  const [originalPrompt, setOriginalPrompt]     = useState('')
 
   // Audio state
-  const [voiceMode, setVoiceMode]   = useState('tts')
-  const [voiceText, setVoiceText]   = useState('')
-  const [voiceVoice, setVoiceVoice] = useState('nova')
-  const [audioModel, setAudioModel] = useState('tts-1')
-  const [musicModel, setMusicModel] = useState('acestep')
+  const [voiceMode, setVoiceMode]     = useState('tts')
+  const [voiceText, setVoiceText]     = useState('')
+  const [voiceVoice, setVoiceVoice]   = useState('nova')
+  const [audioModel, setAudioModel]   = useState('tts-1')
+  const [musicModel, setMusicModel]   = useState('acestep')
   const [voiceDuration, setVoiceDuration] = useState(30)
   const [voiceLoading, setVoiceLoading]   = useState(false)
   const [voiceResult, setVoiceResult]     = useState(null)
   const [voiceError, setVoiceError]       = useState(null)
-
-  // STT state
-  const [sttFile, setSttFile]         = useState(null)
-  const [sttFileName, setSttFileName] = useState('')
-  const [sttLoading, setSttLoading]   = useState(false)
-  const [sttResult, setSttResult]     = useState('')
-  const [sttError, setSttError]       = useState(null)
+  const [sttFile, setSttFile]             = useState(null)
+  const [sttFileName, setSttFileName]     = useState('')
+  const [sttLoading, setSttLoading]       = useState(false)
+  const [sttResult, setSttResult]         = useState('')
 
   // Video state
-  const [videoPrompt, setVideoPrompt]   = useState('')
-  const [videoModel, setVideoModel]     = useState('ltx-2')
+  const [videoPrompt, setVideoPrompt]     = useState('')
+  const [videoModel, setVideoModel]       = useState('ltx-2')
   const [videoDuration, setVideoDuration] = useState(6)
-  const [videoSize, setVideoSize]       = useState(0)
-  const [videoLoading, setVideoLoading] = useState(false)
-  const [videoResult, setVideoResult]   = useState(null)
-  const [videoError, setVideoError]     = useState(null)
-  const [videoImageBase64, setVideoImageBase64] = useState(null)
-  const [videoImagePreview, setVideoImagePreview] = useState(null)
+  const [videoSize, setVideoSize]         = useState(0)
+  const [videoLoading, setVideoLoading]   = useState(false)
+  const [videoResult, setVideoResult]     = useState(null)
+  const [videoError, setVideoError]       = useState(null)
+  const [videoRefBase64, setVideoRefBase64] = useState(null)
+  const [videoRefPreview, setVideoRefPreview] = useState(null)
 
   useEffect(() => {
-    const k = getUserKey(); setUserKey(k)
-    fetchBalance(k)
+    const k = getUserKey(); setUserKey(k); fetchBalance(k)
     loadRecent()
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab'); if (t && ['image','audio','video'].includes(t)) setTab(t)
     const p = params.get('prompt'); if (p) { setImgPrompt(p); setTab('image') }
-    // Fetch semua model list saat mount
-    loadImageModels()
-    loadAudioModels()
-    loadVideoModels()
+    loadImageModels(); loadAudioModels(); loadVideoModels()
   }, [])
 
-  // ─── Load model lists ────────────────────────────────────────────────────
-
-  async function loadImageModels(forceRefresh = false) {
-    if (forceRefresh) clearModelsCache()
+  async function loadImageModels(force) {
+    if (force) clearModelsCache()
     setImgModelsLoading(true)
-    const raw = await fetchImageModels()
+    const raw = await fetchImageModels(force)
     if (raw) setLiveImageModels(sortModels(raw).map(toDropdown))
     setImgModelsLoading(false)
   }
 
-  async function loadAudioModels(forceRefresh = false) {
-    if (forceRefresh) clearModelsCache()
+  async function loadAudioModels(force) {
+    if (force) clearModelsCache()
     setAudioModelsLoading(true)
-    const raw = await fetchAudioModels()
+    const raw = await fetchAudioModels(force)
     if (raw) setLiveAudioModels(sortModels(raw).map(toDropdown))
     setAudioModelsLoading(false)
   }
 
-  async function loadVideoModels(forceRefresh = false) {
-    if (forceRefresh) clearModelsCache()
+  async function loadVideoModels(force) {
+    if (force) clearModelsCache()
     setVideoModelsLoading(true)
-    const raw = await fetchVideoModels()
+    const raw = await fetchVideoModels(force)
     if (raw) setLiveVideoModels(sortModels(raw).map(toDropdown))
     setVideoModelsLoading(false)
   }
@@ -281,17 +282,23 @@ export default function CreatePage() {
   async function fetchBalance(key) {
     try {
       const headers = {}
-      const k = key !== undefined ? key : getUserKey()
-      if (k) headers['x-user-key'] = k
+      if (key) headers['x-user-key'] = key
       const res = await fetch('/api/balance', { headers })
-      const data = await res.json()
-      setBalance(data.balance ?? 0)
+      setBalance((await res.json()).balance ?? 0)
     } catch { setBalance(null) }
   }
 
   async function loadRecent() { setRecent(await getRecentImages(10)) }
 
   function hasKey() { return !!getUserKey() }
+
+  function getImgTier(modelId) {
+    const m = activeImageModels.find(x => x.id === modelId)
+    if (!m) return 'key'
+    if (m.paidOnly) return 'paid'
+    if (IMAGE_FREE_IDS.includes(modelId)) return 'free'
+    return 'key'
+  }
 
   function openKeyPopup(reason, action) {
     const k = getUserKey()
@@ -315,107 +322,97 @@ export default function CreatePage() {
     setErrorPopup(ERR[code] || ERR.api_error)
   }
 
-  const currentImgModel = activeImageModels.find(m => m.id === imgModel) || activeImageModels[0]
-  const currentStyle    = STYLES.find(s => s.id === imgStyle) || STYLES[0]
-
-  function selectModel(m) {
-    if (!m.free && !hasKey()) {
-      openKeyPopup('byop_image', () => { setImgModel(m.id); setShowModelPicker(false) })
-      return
-    }
-    setImgModel(m.id); setShowModelPicker(false)
+  function selectImageModel(m) {
+    const tier = m.paidOnly ? 'paid' : IMAGE_FREE_IDS.includes(m.id) ? 'free' : 'key'
+    if (tier === 'paid') { setShowPaidPopup(true); return }
+    if (tier === 'key' && !hasKey()) { openKeyPopup('image_model', () => setImgModel(m.id)); return }
+    setImgModel(m.id)
+    if (!SUPPORTS_REFERENCE.includes(m.id)) { setImgRefBase64(null); setImgRefPreview(null) }
   }
 
-  async function doEnhancePrompt(promptToEnhance) {
+  function selectAudioModel(m) {
+    const tier = m.paidOnly ? 'paid' : 'key'
+    if (tier === 'paid') { setShowPaidPopup(true); return }
+    if (!hasKey()) { openKeyPopup('audio', () => {}); return }
+    if (voiceMode === 'music') setMusicModel(m.id); else setAudioModel(m.id)
+  }
+
+  function selectVideoModel(m) {
+    const tier = m.paidOnly ? 'paid' : 'key'
+    if (tier === 'paid') { setShowPaidPopup(true); return }
+    if (!hasKey()) { openKeyPopup('video', () => {}); return }
+    setVideoModel(m.id)
+  }
+
+  async function doEnhance(prompt) {
     setEnhanceLoading(true); setEnhancedPrompt('')
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chat',
+      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'chat', model: 'nova-fast',
           messages: [
-            { role: 'system', content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt — no preamble, no explanation, nothing else.' },
-            { role: 'user', content: promptToEnhance }
-          ],
-          model: 'nova-fast',
+            { role: 'system', content: 'You are an expert AI image prompt engineer. Rewrite the given prompt to be vivid, specific, and highly effective for AI image generation. Weave in details about: lighting, mood, composition, camera angle, color palette, textures, and atmosphere. Keep it under 120 words. Return ONLY the enhanced prompt.' },
+            { role: 'user', content: prompt }
+          ]
         })
       })
-      if (!res.ok) { setEnhancedPrompt(''); setEnhanceLoading(false); return }
+      if (!res.ok) { setEnhanceLoading(false); return }
       const data = await res.json()
-      const result = data.result?.trim() || data.text?.trim() || ''
-      setEnhancedPrompt(result)
-    } catch (err) {
-      console.error('Enhance error:', err)
-      setEnhancedPrompt('')
-    }
+      setEnhancedPrompt(data.result?.trim() || '')
+    } catch {}
     setEnhanceLoading(false)
   }
 
-  async function handleEnhanceClick() {
+  function handleEnhanceClick() {
     if (!imgPrompt.trim()) return
-    const original = imgPrompt.trim()
-    setOriginalPromptForEnhance(original)
-    setShowEnhancePopup(true)
-    await doEnhancePrompt(original)
+    setOriginalPrompt(imgPrompt.trim()); setShowEnhance(true); doEnhance(imgPrompt.trim())
   }
 
-  function handleUseEnhanced() {
-    if (enhancedPrompt) setImgPrompt(enhancedPrompt)
-    setShowEnhancePopup(false); setEnhancedPrompt('')
-  }
-
-  async function handleGenerate(overrideSeed) {
+  async function handleGenerate() {
     if (!imgPrompt.trim() || imgLoading) return
-    if (!currentImgModel?.free && !hasKey()) {
-      openKeyPopup('byop_image', () => doGenerate(overrideSeed)); return
-    }
-    doGenerate(overrideSeed)
+    const tier = getImgTier(imgModel)
+    if (tier === 'paid') { setShowPaidPopup(true); return }
+    if (tier === 'key' && !hasKey()) { openKeyPopup('image', doGenerate); return }
+    doGenerate()
   }
 
-  async function doGenerate(overrideSeed) {
+  async function doGenerate(k) {
     setImgLoading(true); setImgError(null); setImgResult(null); setIsFav(false)
-    setLoadingMsg(randomLoadingMsg())
+    setLoadingMsg(randomMsg())
     const size = SIZES[imgSize]
-    const seed = overrideSeed || Math.floor(Math.random() * 999999)
-    const fullPrompt = imgPrompt.trim() + currentStyle.suffix
-    const k = getUserKey()
+    const seed = Math.floor(Math.random() * 999999)
+    const fullPrompt = imgPrompt.trim() + (STYLES.find(s => s.id === imgStyle)?.suffix || '')
+    const key = k || getUserKey()
 
     try {
       const res = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed, ...(k && { userKey: k }) }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: fullPrompt, model: imgModel, width: size.w, height: size.h, seed,
+          ...(key && { userKey: key }),
+          ...(imgRefBase64 && SUPPORTS_REFERENCE.includes(imgModel) && { imageBase64: imgRefBase64 }),
+        }),
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        handleApiError(err.error || 'api_error'); setImgLoading(false); return
-      }
-      const blob = await res.blob()
+      if (!res.ok) { const err = await res.json().catch(() => ({})); handleApiError(err.error || 'api_error'); setImgLoading(false); return }
+      const blob   = await res.blob()
       const blobUrl = URL.createObjectURL(blob)
       const thumb  = await compressImage(blobUrl, 100)
       const medium = await compressImageToSize(blobUrl, 512)
       const dbId   = await saveImage({ prompt: imgPrompt, model: imgModel, size: size.label, seed, thumbnail: thumb, medium, style: imgStyle })
       setImgResult({ url: blobUrl, medium, prompt: imgPrompt, model: imgModel, size: size.label, seed, style: imgStyle, dbId })
-      await loadRecent()
-      toast('Image generated!')
-      fetchBalance()
+      await loadRecent(); toast('Image generated!'); fetchBalance()
     } catch (err) { setImgError(err.message) }
     setImgLoading(false)
   }
 
   async function handleSaveToFav() {
     if (!imgResult?.dbId) return
-    const result = await toggleFavorite(imgResult.dbId)
-    setIsFav(result)
-    toast(result ? 'Saved to favorites!' : 'Removed from favorites', '/favorites?tab=image')
+    const res = await toggleFavorite(imgResult.dbId)
+    setIsFav(res); toast(res ? 'Saved to favorites!' : 'Removed from favorites', '/favorites?tab=image')
   }
 
-  function handleRegenerate() { if (imgResult) handleGenerate(imgResult.seed) }
   function handleDownload() {
     if (!imgResult) return
-    const a = document.createElement('a'); a.href = imgResult.url
-    a.download = 'vibescape-' + Date.now() + '.png'; a.click()
+    const a = document.createElement('a'); a.href = imgResult.url; a.download = 'vibescape-' + Date.now() + '.png'; a.click()
   }
 
   function handleClickRecent(item) {
@@ -425,13 +422,13 @@ export default function CreatePage() {
   }
 
   async function handleClearRecent() { await clearRecentOnly(); await loadRecent(); setConfirmClearRecent(false); toast('Recent cleared!') }
-  async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Copied!') } catch { toast('Failed to copy') } }
 
   async function handleVoiceGenerate() {
     if (voiceLoading || sttLoading) return
     if (voiceMode !== 'stt' && !voiceText.trim()) return
     if (voiceMode === 'stt' && !sttFile) return
-    const k = getUserKey(); if (!k) { openKeyPopup('voice', k2 => doVoice(k2)); return }
+    const k = getUserKey()
+    if (!k) { openKeyPopup('audio', k2 => doVoice(k2)); return }
     doVoice(k)
   }
 
@@ -440,15 +437,8 @@ export default function CreatePage() {
     setVoiceLoading(true); setVoiceError(null); setVoiceResult(null)
     try {
       const model = voiceMode === 'music' ? musicModel : audioModel
-      const body  = {
-        action: 'audio',
-        prompt: voiceText.trim(),
-        userKey: k,
-        model,
-        voice: voiceMode === 'tts' ? voiceVoice : undefined,
-        duration: voiceMode === 'music' ? voiceDuration : undefined,
-      }
-      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'audio', prompt: voiceText.trim(), userKey: k, model, voice: voiceMode === 'tts' ? voiceVoice : undefined, duration: voiceMode === 'music' ? voiceDuration : undefined }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVoiceLoading(false); return }
       setVoiceResult(data.audio)
@@ -458,7 +448,7 @@ export default function CreatePage() {
 
   async function doSTT(k) {
     if (!sttFile) return
-    setSttLoading(true); setSttError(null); setSttResult('')
+    setSttLoading(true); setSttResult('')
     try {
       const reader = new FileReader()
       reader.onload = async (ev) => {
@@ -466,24 +456,16 @@ export default function CreatePage() {
           body: JSON.stringify({ action: 'audio', model: 'universal-2', audioBase64: ev.target.result, userKey: k }) })
         const data = await res.json()
         if (data.error) { handleApiError(data.error); setSttLoading(false); return }
-        setSttResult(data.transcription || '')
-        setSttLoading(false)
+        setSttResult(data.transcription || ''); setSttLoading(false)
       }
       reader.readAsDataURL(sttFile)
-    } catch { setSttError('Transcription failed. Try again?'); setSttLoading(false) }
+    } catch { setSttLoading(false) }
   }
-
-  function handleVideoImageUpload(e) {
-    const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => { setVideoImageBase64(ev.target.result); setVideoImagePreview(ev.target.result) }
-    reader.readAsDataURL(file)
-  }
-  function clearVideoImage() { setVideoImageBase64(null); setVideoImagePreview(null) }
 
   async function handleVideoGenerate() {
     if (!videoPrompt.trim() || videoLoading) return
-    const k = getUserKey(); if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
+    const k = getUserKey()
+    if (!k) { openKeyPopup('video', k2 => doVideo(k2)); return }
     doVideo(k)
   }
 
@@ -491,9 +473,8 @@ export default function CreatePage() {
     setVideoLoading(true); setVideoError(null); setVideoResult(null)
     try {
       const vsize = VIDEO_SIZES[videoSize] || VIDEO_SIZES[0]
-      const body  = { action: 'video', prompt: videoPrompt.trim(), model: videoModel, duration: Math.min(Math.max(videoDuration, 3), 30), width: vsize.w, height: vsize.h, userKey: k }
-      if (videoImageBase64) body.imageBase64 = videoImageBase64
-      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res  = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'video', prompt: videoPrompt.trim(), model: videoModel, duration: Math.min(Math.max(videoDuration, 3), 30), width: vsize.w, height: vsize.h, userKey: k, ...(videoRefBase64 && { imageBase64: videoRefBase64 }) }) })
       const data = await res.json()
       if (data.error) { handleApiError(data.error); setVideoLoading(false); return }
       setVideoResult(data.video)
@@ -501,34 +482,34 @@ export default function CreatePage() {
     setVideoLoading(false)
   }
 
+  function handleRefUpload(e, setBase64, setPreview) {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => { setBase64(ev.target.result); setPreview(ev.target.result) }
+    reader.readAsDataURL(file)
+  }
+
+  const canRef = SUPPORTS_REFERENCE.includes(imgModel)
+
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-black vs-text text-center mb-1">AI <span className="vs-gradient-text">Playground</span></h1>
       <p className="text-xs vs-text-sub text-center mb-4">create unhinged stuff with artificial brainpower</p>
 
-      {/* Balance bar */}
       <div className="flex items-center justify-between gap-2 mb-5">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px]">
           {balance !== null
-            ? <button onClick={() => setShowPollenPopup(true)} className="vs-text-sub hover:underline">
-                {balance > 0 ? balance.toFixed(3) + ' pollen' : 'pollen depleted'}
-              </button>
+            ? <button onClick={() => setShowPollenPopup(true)} className="vs-text-sub hover:underline">{balance > 0 ? balance.toFixed(3) + ' pollen' : 'pollen depleted'}</button>
             : <span className="vs-text-sub">Loading...</span>}
-          {userKey ? (
-            <button onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }}
-              className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">key active</button>
-          ) : (
-            <button onClick={() => setShowKeyPopup(true)}
-              className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">add key</button>
-          )}
+          {userKey
+            ? <button onClick={() => { setKeyReason('manage'); setShowKeyPopup(true) }} className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">key active</button>
+            : <button onClick={() => setShowKeyPopup(true)} className="text-[10px] font-semibold vs-text border-l vs-border pl-2 ml-1">add key</button>}
         </div>
-        <a href="/ai/chat"
-          className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity">
+        <a href="/ai/chat" className="flex items-center gap-1 px-3 py-1.5 rounded-full vs-card border vs-border text-[10px] font-semibold vs-text hover:opacity-75 transition-opacity">
           Chat Tools <ArrowRight size={10} />
         </a>
       </div>
 
-      {/* Tab bar */}
       <div className="flex gap-1 mb-6 vs-card border vs-border rounded-xl p-1">
         {tabs.map(t => {
           const Icon = t.icon
@@ -542,48 +523,14 @@ export default function CreatePage() {
         })}
       </div>
 
-      {/* ══════════════════════════════════════════════ IMAGE ══ */}
+      {/* ── IMAGE ─────────────────────────────────────────────────────── */}
       {tab === 'image' && (
         <div>
-          {/* Model dropdown — DYNAMIC */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-semibold vs-text">Model</p>
-              <button onClick={() => loadImageModels(true)} disabled={imgModelsLoading}
-                className="p-1 rounded-lg vs-text-sub vs-hover" title="Refresh model list">
-                <RefreshCw size={12} className={imgModelsLoading ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <button onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
-              <span className="flex-1 text-left">
-                {imgModelsLoading ? 'Loading...' : (currentImgModel?.label || imgModel)}
-              </span>
-              <span className="vs-text-sub text-[10px]">{currentImgModel?.free ? 'free' : 'key'}</span>
-              <ChevronDown size={14} className="vs-text-sub" style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-            </button>
-            {showModelPicker && (
-              <div className="vs-card border vs-border rounded-xl mt-1 max-h-56 overflow-y-auto">
-                {imgModelsLoading ? (
-                  <div className="flex items-center justify-center py-4 gap-2">
-                    <Loader2 size={14} className="animate-spin vs-text-sub" />
-                    <span className="text-xs vs-text-sub">Loading models...</span>
-                  </div>
-                ) : activeImageModels.map(m => (
-                  <button key={m.id} onClick={() => selectModel(m)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs vs-hover border-b vs-border last:border-b-0"
-                    style={{ color: imgModel === m.id ? 'var(--vs-accent)' : 'var(--vs-text)' }}>
-                    <span className="flex-1 text-left font-semibold">{m.label}</span>
-                    <span className="vs-text-sub text-[10px]">{m.free ? 'free' : 'key'}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="text-[10px] vs-text-sub mt-1.5">
-              free &middot; server key &nbsp;|&nbsp; key &middot; your own API key
-              {!imgModelsLoading && liveImageModels && <span className="ml-2 opacity-60">&middot; auto-updated</span>}
-            </p>
-          </div>
+          <ModelDropdown
+            models={activeImageModels} loading={imgModelsLoading}
+            selected={imgModel} freeIds={IMAGE_FREE_IDS}
+            onSelect={selectImageModel} onRefresh={() => loadImageModels(true)}
+          />
 
           {/* Size */}
           <div className="mb-4">
@@ -611,15 +558,15 @@ export default function CreatePage() {
                 <Shuffle size={12} /> Random
               </button>
               <button onClick={handleEnhanceClick} disabled={!imgPrompt.trim()}
-                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover transition-all"
+                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover"
                 style={{ opacity: imgPrompt.trim() ? 1 : 0.4 }}>
                 <Wand2 size={12} /> Enhance
               </button>
               <div className="relative">
                 <button onClick={() => setShowStylePicker(!showStylePicker)}
                   className="w-full flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold vs-card border vs-border vs-text-sub vs-hover">
-                  Style: {currentStyle.label}
-                  <ChevronDown size={12} style={{ transform: showStylePicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+                  {STYLES.find(s => s.id === imgStyle)?.label || 'Style'}
+                  <ChevronDown size={11} style={{ transform: showStylePicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
                 </button>
                 {showStylePicker && (
                   <div className="absolute bottom-full mb-1 left-0 right-0 vs-card border vs-border rounded-xl shadow-lg max-h-48 overflow-y-auto z-10">
@@ -636,10 +583,39 @@ export default function CreatePage() {
             </div>
           </div>
 
-          <button onClick={() => handleGenerate()} disabled={imgLoading || !imgPrompt.trim()}
+          {/* Reference image */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold vs-text mb-2">
+              Reference Image <span className="vs-text-sub font-normal">(optional)</span>
+            </p>
+            {imgRefPreview ? (
+              <div className="flex items-center gap-3">
+                <img src={imgRefPreview} alt="ref" className="w-16 h-16 object-cover rounded-xl border vs-border" />
+                <div>
+                  <p className="text-[10px] vs-text mb-1">Reference set</p>
+                  <button onClick={() => { setImgRefBase64(null); setImgRefPreview(null) }}
+                    className="text-[10px] vs-text-sub hover:underline flex items-center gap-1"><X size={10} /> Remove</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className={[
+                  'flex items-center gap-2 px-3 py-2.5 rounded-xl border vs-border w-fit',
+                  canRef ? 'vs-card vs-hover cursor-pointer' : 'opacity-40 cursor-not-allowed',
+                ].join(' ')}>
+                  <ImagePlus size={14} className="vs-text-sub" />
+                  <span className="text-xs vs-text-sub">Upload reference image</span>
+                  {canRef && <input type="file" accept="image/*" className="hidden" onChange={e => handleRefUpload(e, setImgRefBase64, setImgRefPreview)} />}
+                </label>
+                {!canRef && <p className="text-[10px] vs-text-sub mt-1">Not supported by this model</p>}
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleGenerate} disabled={imgLoading || !imgPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: imgLoading || !imgPrompt.trim() ? 0.5 : 1 }}>
-            {imgLoading ? (<><Loader2 size={16} className="animate-spin" /> {loadingMsg}</>) : (<><Sparkles size={16} /> Generate</>)}
+            {imgLoading ? <><Loader2 size={16} className="animate-spin" /> {loadingMsg}</> : <><Sparkles size={16} /> Generate</>}
           </button>
 
           {imgLoading && (
@@ -649,28 +625,22 @@ export default function CreatePage() {
             </div>
           )}
 
-          {imgError && (
-            <div className="vs-card border vs-border rounded-xl p-4 text-center mb-6">
-              <p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{imgError}</p>
-            </div>
-          )}
+          {imgError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-6"><p className="text-xs vs-text-sub">{imgError}</p></div>}
 
           {imgResult && !imgLoading && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-6">
               <img src={imgResult.url} alt={imgResult.prompt} className="w-full" />
               {imgResult.isThumb && <p className="text-[10px] text-center vs-text-sub py-1">Preview — Regenerate for full size</p>}
               <div className="p-4">
-                <p className="text-xs vs-text-sub mb-1 leading-relaxed line-clamp-2">{imgResult.prompt}</p>
-                {imgResult.prompt.length > 80 && (
-                  <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>
-                )}
+                <p className="text-xs vs-text-sub mb-1 leading-relaxed" style={{ display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{imgResult.prompt}</p>
+                {imgResult.prompt.length > 80 && <button onClick={() => setReadMoreText(imgResult.prompt)} className="text-[10px] mb-2 underline" style={{ color: 'var(--vs-accent)' }}>Read more</button>}
                 <p className="text-[10px] vs-text-sub mb-3">
-                  {'Model: ' + imgResult.model + ' · Size: ' + imgResult.size + ' · Seed: ' + imgResult.seed + (imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : '')}
+                  {'Model: ' + imgResult.model + ' · ' + imgResult.size + (imgResult.style && imgResult.style !== 'none' ? ' · ' + imgResult.style : '')}
                 </p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
-                  <button onClick={handleRegenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
-                  <button onClick={handleSaveToFav} className="vs-btn-outline py-2.5 px-3 rounded-xl text-xs font-semibold"
+                  <button onClick={doGenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
+                  <button onClick={handleSaveToFav} className="vs-btn-outline py-2.5 px-3 rounded-xl"
                     style={{ borderColor: isFav ? 'var(--vs-accent)' : undefined, color: isFav ? 'var(--vs-accent)' : undefined }}>
                     <Heart size={14} fill={isFav ? 'var(--vs-accent)' : 'none'} />
                   </button>
@@ -692,21 +662,19 @@ export default function CreatePage() {
                 {recent.map((item, i) => (
                   <button key={item.id || i} onClick={() => handleClickRecent(item)}
                     className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border vs-border vs-hover relative">
-                    {item.thumbnail ? <img src={item.thumbnail} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full vs-bg2 flex items-center justify-center"><ImageIcon size={14} className="vs-text-sub" /></div>}
-                    {item.favorite && <span className="absolute top-0.5 right-0.5 text-[8px]">♥</span>}
+                    {item.thumbnail ? <img src={item.thumbnail} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--vs-bg2)' }}><ImageIcon size={14} className="vs-text-sub" /></div>}
+                    {item.favorite && <span className="absolute top-0.5 right-0.5 text-[8px]" style={{ color: 'var(--vs-accent)' }}>♥</span>}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] vs-text-sub mt-2">Last 10 generations. Use ♥ to save permanently.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════ AUDIO ══ */}
+      {/* ── AUDIO ─────────────────────────────────────────────────────── */}
       {tab === 'audio' && (
         <div>
-          {/* Mode tabs */}
           <div className="flex gap-1 mb-5 vs-card border vs-border rounded-xl p-1">
             {[['tts','TTS'],['music','Music'],['stt','Transcribe']].map(([mode, label]) => (
               <button key={mode} onClick={() => setVoiceMode(mode)} className="flex-1 py-2.5 rounded-lg text-xs font-bold text-center transition-all"
@@ -716,16 +684,12 @@ export default function CreatePage() {
             ))}
           </div>
 
-          {/* TTS */}
           {voiceMode === 'tts' && (
             <>
-              {/* TTS model dropdown — DYNAMIC */}
               <ModelDropdown
                 models={activeAudioModels.filter(m => !m.id.includes('step') && !m.id.includes('music'))}
-                loading={audioModelsLoading}
-                selected={audioModel}
-                onSelect={m => setAudioModel(m.id)}
-                onRefresh={() => loadAudioModels(true)}
+                loading={audioModelsLoading} selected={audioModel} freeIds={[]}
+                onSelect={selectAudioModel} onRefresh={() => loadAudioModels(true)}
               />
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Voice</p>
@@ -740,24 +704,18 @@ export default function CreatePage() {
               </div>
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Text to speak</p>
-                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
-                  placeholder="Type what you want to hear..." rows={3}
-                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
-                  style={{ backgroundColor: 'var(--vs-card)' }} />
+                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)} placeholder="Type what you want to hear..." rows={3}
+                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
               </div>
             </>
           )}
 
-          {/* Music */}
           {voiceMode === 'music' && (
             <>
-              {/* Music model dropdown — DYNAMIC */}
               <ModelDropdown
                 models={activeAudioModels.filter(m => m.id.includes('step') || m.id.includes('music') || activeAudioModels.length <= 2)}
-                loading={audioModelsLoading}
-                selected={musicModel}
-                onSelect={m => setMusicModel(m.id)}
-                onRefresh={() => loadAudioModels(true)}
+                loading={audioModelsLoading} selected={musicModel} freeIds={[]}
+                onSelect={selectAudioModel} onRefresh={() => loadAudioModels(true)}
               />
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Duration: {voiceDuration}s</p>
@@ -765,15 +723,12 @@ export default function CreatePage() {
               </div>
               <div className="mb-4">
                 <p className="text-xs font-semibold vs-text mb-2">Describe the music</p>
-                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)}
-                  placeholder="A chill lo-fi beat with rain sounds and soft piano..." rows={3}
-                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none"
-                  style={{ backgroundColor: 'var(--vs-card)' }} />
+                <textarea value={voiceText} onChange={e => setVoiceText(e.target.value)} placeholder="A chill lo-fi beat with rain sounds and soft piano..." rows={3}
+                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none resize-none" style={{ backgroundColor: 'var(--vs-card)' }} />
               </div>
             </>
           )}
 
-          {/* STT */}
           {voiceMode === 'stt' && (
             <>
               <div className="mb-4">
@@ -783,12 +738,11 @@ export default function CreatePage() {
                   <span className="text-xs vs-text-sub flex-1">{sttFileName || 'Upload MP3, WAV, M4A...'}</span>
                   <input type="file" accept="audio/*" className="hidden" onChange={e => {
                     const f = e.target.files?.[0]
-                    if (f) { setSttFile(f); setSttFileName(f.name); setSttResult(''); setSttError(null) }
+                    if (f) { setSttFile(f); setSttFileName(f.name); setSttResult('') }
                   }} />
                 </label>
-                <p className="text-[10px] vs-text-sub mt-1.5">Powered by AssemblyAI universal-2 model</p>
+                <p className="text-[10px] vs-text-sub mt-1.5">Powered by AssemblyAI universal-2</p>
               </div>
-              {sttError && <div className="vs-card border vs-border rounded-xl p-3 text-center mb-4"><p className="text-xs vs-text-sub">{sttError}</p></div>}
               {sttResult && (
                 <div className="vs-card border vs-border rounded-xl p-4 mb-4">
                   <p className="text-[10px] font-semibold vs-text-sub uppercase tracking-wider mb-2">Transcription</p>
@@ -806,20 +760,8 @@ export default function CreatePage() {
             disabled={voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-4 gap-2 flex items-center justify-center"
             style={{ opacity: (voiceLoading || sttLoading || (voiceMode !== 'stt' && !voiceText.trim()) || (voiceMode === 'stt' && !sttFile)) ? 0.5 : 1 }}>
-            {(voiceLoading || sttLoading)
-              ? (<><Loader2 size={16} className="animate-spin" /> {voiceMode === 'stt' ? 'Transcribing...' : 'Generating...'}</>)
-              : (<><Play size={16} /> {voiceMode === 'stt' ? 'Transcribe' : 'Generate'}</>)}
+            {(voiceLoading || sttLoading) ? <><Loader2 size={16} className="animate-spin" /> {voiceMode === 'stt' ? 'Transcribing...' : 'Generating...'}</> : <><Play size={16} /> {voiceMode === 'stt' ? 'Transcribe' : 'Generate'}</>}
           </button>
-
-          {voiceLoading && voiceMode !== 'stt' && (
-            <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
-              <div className="skeleton h-10 w-full rounded-xl mb-3" />
-              <div className="skeleton h-8 w-full rounded-xl" />
-              <p className="text-[10px] vs-text-sub text-center mt-3">Generating audio...</p>
-            </div>
-          )}
-
-          {voiceError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{voiceError}</p></div>}
 
           {voiceResult && voiceMode !== 'stt' && !voiceLoading && (
             <div className="vs-card border vs-border rounded-2xl p-4 mb-4">
@@ -828,32 +770,26 @@ export default function CreatePage() {
                 className="vs-btn w-full py-2 rounded-xl text-xs font-semibold mt-3 gap-1 flex items-center justify-center">
                 <Download size={14} /> Download
               </a>
-              <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg"
-                style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
-                not saved — download before you bounce 👋
+              <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg" style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
+                not saved — download before you bounce
               </p>
             </div>
           )}
-
           <div className="vs-card border vs-border rounded-xl p-3 text-center">
             <p className="text-[10px] vs-text-sub">Audio features require your own API key</p>
           </div>
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════ VIDEO ══ */}
+      {/* ── VIDEO ─────────────────────────────────────────────────────── */}
       {tab === 'video' && (
         <div>
-          {/* Video model dropdown — DYNAMIC */}
           <ModelDropdown
-            models={activeVideoModels}
-            loading={videoModelsLoading}
-            selected={videoModel}
-            onSelect={m => setVideoModel(m.id)}
-            onRefresh={() => loadVideoModels(true)}
+            models={activeVideoModels} loading={videoModelsLoading}
+            selected={videoModel} freeIds={[]}
+            onSelect={selectVideoModel} onRefresh={() => loadVideoModels(true)}
           />
 
-          {/* Size */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Size</p>
             <div className="flex gap-2">
@@ -866,33 +802,27 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Duration */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Duration: {videoDuration}s (3-30s)</p>
             <input type="range" min="3" max="30" value={videoDuration} onChange={e => setVideoDuration(parseInt(e.target.value))} className="w-full" />
           </div>
 
-          {/* Reference image */}
           <div className="mb-4">
-            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional)</span></p>
-            {videoImagePreview ? (
-              <div className="relative inline-block">
-                <img src={videoImagePreview} alt="ref" className="w-24 h-24 object-cover rounded-xl border vs-border" />
-                <button onClick={clearVideoImage}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                  style={{ backgroundColor: '#EF4444' }}><X size={10} /></button>
+            <p className="text-xs font-semibold vs-text mb-2">Reference Image <span className="vs-text-sub font-normal">(optional — first frame)</span></p>
+            {videoRefPreview ? (
+              <div className="flex items-center gap-3">
+                <img src={videoRefPreview} alt="ref" className="w-16 h-16 object-cover rounded-xl border vs-border" />
+                <button onClick={() => { setVideoRefBase64(null); setVideoRefPreview(null) }} className="text-[10px] vs-text-sub hover:underline flex items-center gap-1"><X size={10} /> Remove</button>
               </div>
             ) : (
               <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl vs-card border vs-border vs-hover cursor-pointer w-fit">
-                <ImageIcon size={14} className="vs-text-sub" />
+                <ImagePlus size={14} className="vs-text-sub" />
                 <span className="text-xs vs-text-sub">Upload reference image</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleVideoImageUpload} />
+                <input type="file" accept="image/*" className="hidden" onChange={e => handleRefUpload(e, setVideoRefBase64, setVideoRefPreview)} />
               </label>
             )}
-            <p className="text-[10px] vs-text-sub mt-1.5">Model animates from this image as the first frame.</p>
           </div>
 
-          {/* Prompt */}
           <div className="mb-4">
             <p className="text-xs font-semibold vs-text mb-2">Prompt</p>
             <textarea value={videoPrompt} onChange={e => setVideoPrompt(e.target.value)}
@@ -904,21 +834,17 @@ export default function CreatePage() {
           <button onClick={handleVideoGenerate} disabled={videoLoading || !videoPrompt.trim()}
             className="vs-btn w-full py-3 rounded-xl text-sm font-bold mb-6 gap-2 flex items-center justify-center"
             style={{ opacity: videoLoading || !videoPrompt.trim() ? 0.5 : 1 }}>
-            {videoLoading ? (<><Loader2 size={16} className="animate-spin" /> Generating...</>) : (<><Film size={16} /> Generate</>)}
+            {videoLoading ? <><Loader2 size={16} className="animate-spin" /> Generating...</> : <><Film size={16} /> Generate</>}
           </button>
 
           {videoLoading && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
               <div className="skeleton aspect-video w-full" />
-              <div className="p-3">
-                <div className="skeleton h-3 w-3/4 mb-2 mx-auto" />
-                <div className="skeleton h-3 w-1/2 mx-auto" />
-              </div>
-              <p className="text-[10px] vs-text-sub text-center pb-3">Generating video — this takes a moment...</p>
+              <p className="text-[10px] vs-text-sub text-center py-3">Generating video — this takes a moment...</p>
             </div>
           )}
 
-          {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xl mb-1">💀</p><p className="text-xs vs-text-sub">{videoError}</p></div>}
+          {videoError && <div className="vs-card border vs-border rounded-xl p-4 text-center mb-4"><p className="text-xs vs-text-sub">{videoError}</p></div>}
 
           {videoResult && !videoLoading && (
             <div className="vs-card border vs-border rounded-2xl overflow-hidden mb-4">
@@ -928,9 +854,8 @@ export default function CreatePage() {
                   className="vs-btn w-full py-2 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center">
                   <Download size={14} /> Download
                 </a>
-                <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg"
-                  style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
-                  not saved — download before you bounce 👋
+                <p className="text-[10px] font-bold text-center mt-2 py-1.5 px-3 rounded-lg" style={{ color: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)' }}>
+                  not saved — download before you bounce
                 </p>
               </div>
             </div>
@@ -938,18 +863,16 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ─── ENHANCE POPUP ─── */}
-      {showEnhancePopup && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhancePopup(false) }}>
+      {/* ── ENHANCE POPUP ─── */}
+      {showEnhance && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => { if (!enhanceLoading) setShowEnhance(false) }}>
           <div className="vs-card rounded-2xl border vs-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b vs-border">
               <div className="flex items-center gap-2">
                 <Wand2 size={14} style={{ color: 'var(--vs-accent)' }} />
                 <p className="text-sm font-bold vs-text">Prompt Enhanced</p>
               </div>
-              {!enhanceLoading && (
-                <button onClick={() => setShowEnhancePopup(false)} className="vs-text-sub p-1 rounded-lg vs-hover"><X size={16} /></button>
-              )}
+              {!enhanceLoading && <button onClick={() => setShowEnhance(false)} className="vs-text-sub p-1 rounded-lg"><X size={16} /></button>}
             </div>
             <div className="p-4">
               {enhanceLoading ? (
@@ -959,28 +882,21 @@ export default function CreatePage() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-3">
-                    <p className="text-[9px] font-bold vs-text-sub uppercase tracking-wider mb-1.5">Original</p>
-                    <p className="text-[11px] vs-text-sub leading-relaxed line-clamp-2">{originalPromptForEnhance}</p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced</p>
-                    <div className="rounded-xl p-3 max-h-36 overflow-y-auto" style={{ background: 'var(--vs-bg)' }}>
-                      <p className="text-[11px] vs-text leading-relaxed">{enhancedPrompt || 'No result. Try re-enhancing.'}</p>
-                    </div>
+                  <p className="text-[9px] font-bold vs-text-sub uppercase tracking-wider mb-1">Original</p>
+                  <p className="text-[11px] vs-text-sub leading-relaxed mb-3" style={{ display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{originalPrompt}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--vs-accent)' }}>Enhanced</p>
+                  <div className="rounded-xl p-3 max-h-36 overflow-y-auto mb-4" style={{ background: 'var(--vs-bg)' }}>
+                    <p className="text-[11px] vs-text leading-relaxed">{enhancedPrompt || 'No result. Try re-enhancing.'}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={handleUseEnhanced} disabled={!enhancedPrompt}
-                      className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
-                      style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
+                    <button onClick={() => { if (enhancedPrompt) setImgPrompt(enhancedPrompt); setShowEnhance(false) }}
+                      disabled={!enhancedPrompt} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1" style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
                       <Check size={12} /> Use it
                     </button>
-                    <button onClick={() => doEnhancePrompt(originalPromptForEnhance)}
-                      className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
-                      <RefreshCw size={12} /> Re-enhance
+                    <button onClick={() => doEnhance(originalPrompt)} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
+                      <RefreshCw size={12} /> Retry
                     </button>
-                    <button onClick={() => setShowEnhancePopup(false)}
-                      className="px-3 py-2.5 rounded-xl text-xs font-semibold vs-text-sub border vs-border vs-hover">Nope</button>
+                    <button onClick={() => setShowEnhance(false)} className="px-3 py-2.5 rounded-xl text-xs font-semibold vs-text-sub border vs-border">Nope</button>
                   </div>
                 </>
               )}
@@ -989,15 +905,15 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ─── READ MORE ─── */}
+      {/* ── READ MORE ─── */}
       {readMoreText && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-24" onClick={() => setReadMoreText(null)}>
           <div className="vs-card rounded-2xl p-5 max-w-sm w-full border vs-border max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-bold vs-text">Full Prompt</p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => copyText(readMoreText)} className="vs-text-sub vs-hover p-1.5 rounded-lg"><Copy size={14} /></button>
-                <button onClick={() => setReadMoreText(null)} className="vs-text-sub vs-hover p-1.5 rounded-lg"><X size={14} /></button>
+              <div className="flex gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(readMoreText); toast('Copied!') }} className="vs-text-sub p-1.5 rounded-lg"><Copy size={14} /></button>
+                <button onClick={() => setReadMoreText(null)} className="vs-text-sub p-1.5 rounded-lg"><X size={14} /></button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto"><p className="text-sm vs-text leading-relaxed">{readMoreText}</p></div>
@@ -1005,13 +921,12 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ─── CONFIRM CLEAR RECENT ─── */}
+      {/* ── CONFIRM CLEAR ─── */}
       {confirmClearRecent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setConfirmClearRecent(false)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">🗑️</p>
             <h3 className="text-lg font-bold vs-text mb-2">Clear recent?</h3>
-            <p className="text-sm vs-text-sub mb-5">Non-favorited images will be removed. Your ♥ favorites stay safe.</p>
+            <p className="text-sm vs-text-sub mb-5">Non-favorited images will be removed. Favorites stay safe.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmClearRecent(false)} className="flex-1 vs-btn-outline px-4 py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
               <button onClick={handleClearRecent} className="flex-1 vs-btn px-4 py-2.5 rounded-xl text-sm font-semibold">Clear</button>
@@ -1020,85 +935,83 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ─── POLLEN POPUP ─── */}
-      {showPollenPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
-          <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            {!userKey ? (
-              <>
-                <h3 className="text-lg font-bold vs-text mb-2">Your Pollen Situation</h3>
-                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
-                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
-                  <p className="text-[10px] vs-text-sub mt-1">pollen remaining</p>
-                </div>
-                <p className="text-xs vs-text-sub leading-relaxed mb-4">Resets every hour. Add your own key to skip the wait and unlock premium models.</p>
-                <button onClick={() => { setShowPollenPopup(false); setShowKeyPopup(true) }}
-                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Add API Key</button>
-                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">Got it, I will wait</button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-bold vs-text mb-2">Pollen</h3>
-                <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
-                  <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
-                  <p className="text-[10px] vs-text-sub mt-1">pollen in your tank</p>
-                </div>
-                <p className="text-[10px] vs-text-sub mb-4">Key active: {userKey.slice(0, 8)}...</p>
-                <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }}
-                  className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Manage Key</button>
-                <button onClick={() => setShowPollenPopup(false)} className="w-full text-center text-[10px] vs-text-sub hover:underline">Close</button>
-              </>
-            )}
+      {/* ── PAID POPUP ─── */}
+      {showPaidPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPaidPopup(false)}>
+          <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-10 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: '#a855f722' }}>
+              <span className="text-base font-black" style={{ color: '#a855f7' }}>P</span>
+            </div>
+            <h3 className="text-base font-bold vs-text mb-2">Premium Model</h3>
+            <p className="text-xs vs-text-sub leading-relaxed mb-5">
+              This model requires a paid subscription at Pollinations.ai. Upgrade your account to unlock access to premium models.
+            </p>
+            <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
+              className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3 flex items-center justify-center gap-2">
+              Upgrade at Pollinations <ExternalLink size={14} />
+            </a>
+            <button onClick={() => setShowPaidPopup(false)} className="w-full text-[10px] vs-text-sub hover:underline">Maybe later</button>
           </div>
         </div>
       )}
 
-      {/* ─── KEY POPUP ─── */}
+      {/* ── POLLEN POPUP ─── */}
+      {showPollenPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowPollenPopup(false)}>
+          <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold vs-text mb-2">{userKey ? 'Pollen' : 'Your Pollen Situation'}</h3>
+            <div className="vs-card border vs-border rounded-xl p-3 mb-4" style={{ background: 'var(--vs-bg)' }}>
+              <p className="text-2xl font-black vs-gradient-text">{balance !== null ? balance.toFixed(3) : '...'}</p>
+              <p className="text-[10px] vs-text-sub mt-1">pollen {userKey ? 'in your tank' : 'remaining'}</p>
+            </div>
+            {!userKey && <p className="text-xs vs-text-sub leading-relaxed mb-4">Resets every hour. Add your own key to skip the wait.</p>}
+            {userKey && <p className="text-[10px] vs-text-sub mb-4">Key active: {userKey.slice(0,8)}...</p>}
+            {!userKey
+              ? <button onClick={() => { setShowPollenPopup(false); setShowKeyPopup(true) }} className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Add API Key</button>
+              : <button onClick={() => { setShowPollenPopup(false); setKeyReason('manage'); setShowKeyPopup(true) }} className="vs-btn-outline w-full py-2.5 rounded-xl text-sm font-semibold mb-3">Manage Key</button>}
+            <button onClick={() => setShowPollenPopup(false)} className="w-full text-[10px] vs-text-sub hover:underline">{userKey ? 'Close' : 'Got it, I will wait'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── KEY POPUP ─── */}
       {showKeyPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full border vs-border" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
-              <h3 className="text-lg font-bold vs-text mb-1">
-                {keyReason === 'quota' ? 'Pollen depleted' : userKey && keyReason === 'manage' ? 'Manage Key' : 'Add API Key'}
-              </h3>
-              <p className="text-xs vs-text-sub leading-relaxed">
-                {keyReason === 'quota' ? 'Server pollen is out. Add your own key to keep generating.' : 'Your personal Pollinations API key.'}
-              </p>
+              <h3 className="text-lg font-bold vs-text mb-1">{keyReason === 'quota' ? 'Pollen depleted' : userKey && keyReason === 'manage' ? 'Manage Key' : 'Add API Key'}</h3>
+              <p className="text-xs vs-text-sub">{keyReason === 'quota' ? 'Add your own key to keep generating.' : 'Your personal Pollinations API key.'}</p>
             </div>
             {(!userKey || keyReason !== 'manage') && (
               <>
                 <input type="text" value={keyInput} onChange={e => setKeyInput(e.target.value)}
                   placeholder="Paste your API key..." onKeyDown={e => e.key === 'Enter' && handleKeySave()}
-                  className="w-full py-3 px-4 rounded-xl vs-card border vs-border text-sm vs-text outline-none mb-4"
-                  style={{ backgroundColor: 'var(--vs-bg)' }} />
+                  className="w-full py-3 px-4 rounded-xl border vs-border text-sm vs-text outline-none mb-4" style={{ backgroundColor: 'var(--vs-bg)' }} />
                 <button onClick={handleKeySave} disabled={!keyInput.trim()}
-                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3"
-                  style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>Save Key</button>
+                  className="vs-btn w-full py-2.5 rounded-xl text-sm font-semibold mb-3" style={{ opacity: keyInput.trim() ? 1 : 0.5 }}>Save Key</button>
               </>
             )}
             <div className="text-center mb-3">
               <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer"
                 className="vs-btn-outline px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1">
-                Get one at Pollinations <ExternalLink size={12} />
+                Get key at Pollinations <ExternalLink size={12} />
               </a>
             </div>
             {userKey && (
               <div className="pt-3 border-t vs-border text-center">
-                <p className="text-[10px] vs-text-sub mb-1">Active key: {userKey.slice(0, 8)}...</p>
+                <p className="text-[10px] vs-text-sub mb-1">Key active: {userKey.slice(0,8)}...</p>
                 <button onClick={() => { handleKeyClear(); setShowKeyPopup(false) }} className="text-[10px] vs-text-sub hover:underline">Remove key</button>
               </div>
             )}
-            <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }}
-              className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">Close</button>
+            <button onClick={() => { setShowKeyPopup(false); setPendingAction(null) }} className="w-full text-center text-[10px] vs-text-sub hover:underline mt-3">Close</button>
           </div>
         </div>
       )}
 
-      {/* ─── ERROR POPUP ─── */}
+      {/* ── ERROR POPUP ─── */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setErrorPopup(null)}>
           <div className="vs-card rounded-2xl p-6 max-w-sm w-full text-center border vs-border" onClick={e => e.stopPropagation()}>
-            <p className="text-4xl mb-3">{errorPopup.emoji}</p>
             <h3 className="text-lg font-bold vs-text mb-2">{errorPopup.title}</h3>
             <p className="text-sm vs-text-sub mb-5">{errorPopup.desc}</p>
             <button onClick={() => setErrorPopup(null)} className="vs-btn px-6 py-2.5 rounded-xl text-sm font-semibold">Got it</button>
