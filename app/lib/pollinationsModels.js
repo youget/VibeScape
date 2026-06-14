@@ -43,10 +43,11 @@ export function sortModels(list) {
   return [...list].sort((a, b) => (a.paid_only === b.paid_only ? 0 : a.paid_only ? 1 : -1))
 }
 
+// Returns { id, label, paidOnly }
 export function toDropdown(m) {
   return {
-    id:    m.name || m.id || '',
-    label: m.description || m.name || m.id || '',
-    free:  !m.paid_only,
+    id:       m.name || m.id || '',
+    label:    m.description || m.name || m.id || '',
+    paidOnly: m.paid_only === true,
   }
 }
