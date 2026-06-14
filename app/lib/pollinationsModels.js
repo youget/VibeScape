@@ -45,9 +45,10 @@ export function sortModels(list) {
 
 // Returns { id, label, paidOnly }
 export function toDropdown(m) {
+  const raw = m.description || m.name || m.id || ''
   return {
     id:       m.name || m.id || '',
-    label:    m.description || m.name || m.id || '',
+    label:    raw.length > 28 ? raw.slice(0, 28) + '...' : raw,
     paidOnly: m.paid_only === true,
   }
 }
