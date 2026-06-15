@@ -142,7 +142,7 @@ function ModelDropdown({ models, loading, selected, freeIds, onSelect, onRefresh
       </div>
       <button onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-2 rounded-xl vs-card border vs-border text-xs font-semibold vs-text w-full">
-        <span className="flex-1 text-left">{loading ? 'Loading...' : (current?.label || selected)}</span>
+        <span className="flex-1 text-left truncate">{loading ? 'Loading...' : (current?.label || selected)}</span>
         {current && <TierBadge tier={getTier(current)} />}
         <ChevronDown size={14} className="vs-text-sub shrink-0" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
       </button>
