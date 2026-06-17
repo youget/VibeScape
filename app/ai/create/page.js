@@ -639,7 +639,7 @@ export default function CreatePage() {
                 </p>
                 <div className="flex gap-2">
                   <button onClick={handleDownload} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><Download size={14} /> Download</button>
-                  <button onClick={doGenerate} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
+                  <button onClick={() => doGenerate()} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-semibold gap-1 flex items-center justify-center"><RefreshCw size={14} /> Regen</button>
                   <button onClick={handleSaveToFav} className="vs-btn-outline py-2.5 px-3 rounded-xl"
                     style={{ borderColor: isFav ? 'var(--vs-accent)' : undefined, color: isFav ? 'var(--vs-accent)' : undefined }}>
                     <Heart size={14} fill={isFav ? 'var(--vs-accent)' : 'none'} />
@@ -889,15 +889,15 @@ export default function CreatePage() {
                     <p className="text-[11px] vs-text leading-relaxed">{enhancedPrompt || 'No result. Try re-enhancing.'}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { if (enhancedPrompt) setImgPrompt(enhancedPrompt); setShowEnhance(false) }}
-                      disabled={!enhancedPrompt} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1" style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
-                      <Check size={12} /> Use it
-                    </button>
-                    <button onClick={() => doEnhance(originalPrompt)} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
-                      <RefreshCw size={12} /> Retry
-                    </button>
-                    <button onClick={() => setShowEnhance(false)} className="px-3 py-2.5 rounded-xl text-xs font-semibold vs-text-sub border vs-border">Nope</button>
-                  </div>
+  <button onClick={() => { if (enhancedPrompt) setImgPrompt(enhancedPrompt); setShowEnhance(false) }}
+    disabled={!enhancedPrompt} className="flex-1 vs-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+    style={{ opacity: enhancedPrompt ? 1 : 0.4 }}>
+    <Check size={12} /> Use it
+  </button>
+  <button onClick={() => setShowEnhance(false)} className="flex-1 vs-btn-outline py-2.5 rounded-xl text-xs font-bold">
+    Nope
+  </button>
+</div>
                 </>
               )}
             </div>
