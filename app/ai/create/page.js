@@ -8,7 +8,7 @@ import { saveImage, getRecentImages, compressImage, compressImageToSize, toggleF
 import { fetchImageModels, fetchAudioModels, fetchVideoModels, sortModels, toDropdown, clearModelsCache } from '../../lib/pollinationsModels'
 
 const USER_KEY_STORAGE   = 'vs-user-polli-key'
-const IMAGE_FREE_IDS     = ['flux', 'zimage']
+const IMAGE_FREE_IDS     = ['dreamshaper']
 const SUPPORTS_REFERENCE = ['flux', 'kontext', 'gptimage', 'gptimage-large', 'wan-image', 'klein']
 
 const IMAGE_MODELS_FALLBACK = [
